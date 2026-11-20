@@ -160,6 +160,7 @@ export class MonsterEntity extends BaseFighter {
       isStunned: !!this.isStunned,
       earthOrbitCount: this.earthOrbitCount,
       isEarthTrapped: !!this.isEarthTrapped,
+      isAttackSlowed: !!this.isAttackSlowed,
       animState: horizSpeed > 0.6 ? 'run' : 'idle',
       speed: Number(horizSpeed.toFixed(2)),
       action,
@@ -227,6 +228,10 @@ export class MonsterEntity extends BaseFighter {
     if (typeof s.isEarthTrapped === 'boolean') {
       this.earthTrapTimer = s.isEarthTrapped ? 1 : 0;
       if (this.mesh.setEarthTrapped) this.mesh.setEarthTrapped(s.isEarthTrapped);
+    }
+    if (typeof s.isAttackSlowed === 'boolean') {
+      this.attackSlowTimer = s.isAttackSlowed ? 1 : 0;
+      if (this.mesh.setAttackSlowed) this.mesh.setAttackSlowed(s.isAttackSlowed);
     }
     if (s.animState) this._netAnimState = s.animState;
     if (typeof s.speed === 'number') this._netSpeed = s.speed;
@@ -571,10 +576,13 @@ export class MonsterEntity extends BaseFighter {
       return;
     }
 
+    const attackDt =
+      this.attackSlowTimer > 0 ? dt * Math.max(0.2, 1 - (this.attackSlowFactor || 0.4)) : dt;
+
     // Si está telegrafiando un Golpe Sísmico / Onda Expansiva Radial
     if (this._telegraph) {
       const tel = this._telegraph;
-      tel.elapsed += dt;
+      tel.elapsed += attackDt;
       tel.group.position.set(this.position.x, Math.max(0.06, this.position.y + 0.06), this.position.z);
       const t = Math.min(1, tel.elapsed / tel.duration);
       tel.fillMesh.scale.setScalar(0.08 + t * 0.92);
@@ -627,7 +635,7 @@ export class MonsterEntity extends BaseFighter {
       return;
     }
 
-    this._attackTimer = Math.max(0, this._attackTimer - dt);
+    this._attackTimer = Math.max(0, this._attackTimer - attackDt);
     this._zigTimer -= dt;
     if (this._zigTimer <= 0) {
       this._zigTimer = 0.65 + Math.random() * 0.7;

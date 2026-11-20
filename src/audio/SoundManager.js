@@ -1379,6 +1379,62 @@ export class SoundManager {
   }
 
   // ============================================================
+  //  2I. Combate del Samurái (acero, cadena kunai y taiko)
+  // ============================================================
+
+  /** Tajo de katana metálico para combo de 3 pasos (step 0, 1, 2) */
+  playKatanaSlash(step = 0) {
+    const t0 = this._ready();
+    if (t0 === null) return;
+    const isSpin = step >= 2;
+    const pitch = 1 + step * 0.16;
+    this._playNoiseBurst(isSpin ? 0.24 : 0.15, 2200 * pitch, isSpin ? 0.24 : 0.18, t0, 'white');
+    this._playFmSweep(1400 * pitch, 520 * pitch, isSpin ? 0.22 : 0.14, 0.13, t0, 38, 120);
+    if (isSpin) {
+      this._playNote(1860, t0 + 0.03, 0.18, 0.09, 'sine');
+    }
+  }
+
+  /** Lanzamiento de Cadena Kunai con tintineo de eslabones */
+  playChainThrow() {
+    const t0 = this._ready();
+    if (t0 === null) return;
+    this._playNoiseBurst(0.18, 2800, 0.16, t0, 'white');
+    [0, 0.035, 0.07, 0.105].forEach((off, idx) => {
+      this._playNote(1650 + idx * 140, t0 + off, 0.055, 0.08, 'triangle');
+    });
+  }
+
+  /** Impacto y tracción metálica de Cadena Kunai */
+  playChainHitPull() {
+    const t0 = this._ready();
+    if (t0 === null) return;
+    this._playNote(980, t0, 0.12, 0.18, 'triangle');
+    this._playNote(1960, t0, 0.14, 0.1, 'sine');
+    this._playFmSweep(900, 320, 0.24, 0.14, t0 + 0.04, 28, 70);
+  }
+
+  /** Salto del Halcón: impulso aéreo + impacto en suelo */
+  playFalconLeap() {
+    const t0 = this._ready();
+    if (t0 === null) return;
+    this._playNoiseBurst(0.22, 1100, 0.18, t0, 'pink');
+    this._playFmSweep(280, 720, 0.22, 0.14, t0, 18, 35);
+    this._playNote(110, t0 + 0.28, 0.3, 0.22, 'sine');
+    this._playNoiseBurst(0.26, 480, 0.22, t0 + 0.28, 'brown');
+  }
+
+  /** Armadura del Shōgun: golpe grave de tambor taiko + resonancia metálica */
+  playShogunArmor() {
+    const t0 = this._ready();
+    if (t0 === null) return;
+    this._playNote(68, t0, 0.55, 0.32, 'sine');
+    this._playNote(136, t0, 0.35, 0.18, 'triangle', 480);
+    this._playNote(880, t0 + 0.05, 0.28, 0.12, 'triangle');
+    this._playNote(1320, t0 + 0.1, 0.34, 0.11, 'sine');
+  }
+
+  // ============================================================
   //  Economía y Ruletas (monedas, ticks y fanfarrias)
   // ============================================================
 

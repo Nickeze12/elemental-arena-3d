@@ -115,6 +115,13 @@ export class BaseFighter {
     /** Buff acumulable de velocidad (+30% por carga, máx. 2 cargas = +60%, 4.0s) por Tentáculos Oscuros */
     this.shadowSpeedBuffStacks = 0;
     this.shadowSpeedBuffTimer = 0;
+    /** Ralentización de movimiento y de velocidad de ataque / recarga (Cadena Kunai, etc.) */
+    this.slowTimer = 0;
+    this.slowFactor = 0;
+    this.attackSlowTimer = 0;
+    this.attackSlowFactor = 0;
+    /** Armadura del Shōgun (Samurái Tecla E): -45% daño recibido, inmunidad a knockback y aturdimiento */
+    this.shogunArmorTimer = 0;
     /** Forma de Niebla (Tormenta): flotación veloz e invulnerabilidad mientras se mantiene */
     this.isMistFormActive = false;
     this.mistFormTimer = 0;
@@ -235,6 +242,18 @@ export class BaseFighter {
 
   get isShadowVeil() {
     return !!this.inEclipseVeil || this.shadowStepVeilTimer > 0;
+  }
+
+  get isShogunArmor() {
+    return this.shogunArmorTimer > 0;
+  }
+
+  get isSlowed() {
+    return this.slowTimer > 0;
+  }
+
+  get isAttackSlowed() {
+    return this.attackSlowTimer > 0;
   }
 
   get isInvulnerable() {
@@ -499,6 +518,10 @@ export class BaseFighter {
       if (this.isAlive && this.isMistFormActive) this._spawnMistEvadePuff();
       return;
     }
+    if (this.isShogunArmor) {
+      if (this.mesh && this.mesh.flash) this.mesh.flash('#eab308');
+      return;
+    }
     if (!this._netAllow && this.combat && this.combat.isAuthoritative === false) return;
     if (attackerId && this.combat && !this.combat.isHostile(attackerId, this)) return;
 
@@ -540,6 +563,71 @@ export class BaseFighter {
     if (!this.isAlive) return;
     this.shadowSpeedBuffStacks = Math.min(2, (this.shadowSpeedBuffStacks || 0) + 1);
     this.shadowSpeedBuffTimer = Math.max(this.shadowSpeedBuffTimer || 0, duration);
+  }
+
+  /** Aplica ralentización de movimiento (`factor` en [0..0.8]) durante `duration` s */
+  applySlow(duration = 2.2, factor = 0.4, attackerId = null) {
+    if (!this.isAlive || this.isInvulnerable) {
+      if (this.isAlive && this.isMistFormActive) this._spawnMistEvadePuff();
+      return;
+    }
+    if (!this._netAllow && this.combat && this.combat.isAuthoritative === false) return;
+    if (attackerId && this.combat && !this.combat.isHostile(attackerId, this)) return;
+
+    const mods = this._getAttackerSurvivalMods(attackerId);
+    const durScale = mods ? mods.statusDurationMult || 1 : 1;
+    const effDur = duration * durScale;
+    this.slowTimer = Math.max(this.slowTimer, effDur);
+    this.slowFactor = Math.max(this.slowFactor, Math.max(0, Math.min(0.8, factor)));
+  }
+
+  /**
+   * Aplica Ralentización de Ataque (`factor` en [0..0.7]) durante `duration` s:
+   * los enfriamientos de habilidades avanzan más lento (`dt * (1 - factor)`).
+   */
+  applyAttackSlow(duration = 2.2, factor = 0.4, attackerId = null) {
+    if (!this.isAlive || this.isInvulnerable) {
+      if (this.isAlive && this.isMistFormActive) this._spawnMistEvadePuff();
+      return;
+    }
+    if (!this._netAllow && this.combat && this.combat.isAuthoritative === false) return;
+    if (attackerId && this.combat && !this.combat.isHostile(attackerId, this)) return;
+
+    const mods = this._getAttackerSurvivalMods(attackerId);
+    const durScale = mods ? mods.statusDurationMult || 1 : 1;
+    const effDur = duration * durScale;
+    this.attackSlowTimer = Math.max(this.attackSlowTimer, effDur);
+    this.attackSlowFactor = Math.max(this.attackSlowFactor, Math.max(0, Math.min(0.7, factor)));
+    if (this.mesh && this.mesh.setAttackSlowed) {
+      this.mesh.setAttackSlowed(true);
+    }
+    if (this.combat && this.combat.isAuthoritative && this.combat.onAuthoritativeCombatEvent) {
+      this.combat.onAuthoritativeCombatEvent({
+        targetId: this.id,
+        attackerId,
+        damage: 0,
+        knockback: null,
+        isCrit: false,
+        status: 'attack_slow',
+        duration: effDur,
+        factor: this.attackSlowFactor,
+        hp: this.hp,
+        maxHp: this.maxHp,
+        isAlive: this.isAlive,
+      });
+    }
+  }
+
+  /** Equipa Armadura del Shōgun por `duration` segundos */
+  setShogunArmor(duration = 6.0) {
+    if (!this.isAlive) return;
+    if (duration <= 0) {
+      this.shogunArmorTimer = 0;
+      if (this.mesh && this.mesh.setShogunArmor) this.mesh.setShogunArmor(false);
+      return;
+    }
+    this.shogunArmorTimer = Math.max(this.shogunArmorTimer, duration);
+    if (this.mesh && this.mesh.setShogunArmor) this.mesh.setShogunArmor(true);
   }
 
   /**
@@ -641,6 +729,11 @@ export class BaseFighter {
     this.shadowVeilSlowTimer = 0;
     this.shadowSpeedBuffStacks = 0;
     this.shadowSpeedBuffTimer = 0;
+    this.slowTimer = 0;
+    this.slowFactor = 0;
+    this.attackSlowTimer = 0;
+    this.attackSlowFactor = 0;
+    this.shogunArmorTimer = 0;
     this.earthRockTimers.length = 0;
     this.earthTrapTimer = 0;
     this.isMistFormActive = false;
@@ -655,6 +748,8 @@ export class BaseFighter {
     if (this.mesh && this.mesh.setStunned) this.mesh.setStunned(false);
     if (this.mesh && this.mesh.setMistForm) this.mesh.setMistForm(false);
     if (this.mesh && this.mesh.setShadowVeil) this.mesh.setShadowVeil(false);
+    if (this.mesh && this.mesh.setAttackSlowed) this.mesh.setAttackSlowed(false);
+    if (this.mesh && this.mesh.setShogunArmor) this.mesh.setShogunArmor(false);
     if (this.mesh && this.mesh.setEarthOrbitRocks) this.mesh.setEarthOrbitRocks(0);
     if (this.mesh && this.mesh.setEarthTrapped) this.mesh.setEarthTrapped(false);
   }
@@ -749,6 +844,11 @@ export class BaseFighter {
     if (this.inEclipseVeil && finalAmount > 0) {
       finalAmount *= 0.68;
     }
+    // Armadura del Shōgun: reduce 45% todo daño recibido e inmuniza contra empuje
+    const shogunActive = this.isShogunArmor;
+    if (shogunActive && finalAmount > 0) {
+      finalAmount *= 0.55;
+    }
 
     // Reducción defensiva de armadura y Aura de Tierra
     const rawIncoming = finalAmount;
@@ -796,15 +896,19 @@ export class BaseFighter {
 
     // Multiplicador Pro-Bending según vida faltante y resistencia del arquetipo
     const knockbackScale = 1 + (1 - this.hp / this.maxHp) * 1.5;
-    const totalKnockback = finalKnockback * knockbackScale * (this.knockbackMultiplier ?? 1) * knockbackTakenScale;
+    const totalKnockback = shogunActive
+      ? 0
+      : finalKnockback * knockbackScale * (this.knockbackMultiplier ?? 1) * knockbackTakenScale;
 
-    // Interrumpe cualquier dash activo
-    this.isDashing = false;
-    this._dashTime = 0;
-    this._hitstunTimer = Math.min(0.45, 0.16 + totalKnockback * 0.012);
+    if (!shogunActive) {
+      // Interrumpe cualquier dash activo
+      this.isDashing = false;
+      this._dashTime = 0;
+      this._hitstunTimer = Math.min(0.45, 0.16 + totalKnockback * 0.012);
+    }
 
     let kbVec = null;
-    if (impulseDirection) {
+    if (impulseDirection && !shogunActive && totalKnockback > 0) {
       const horizDir = new THREE.Vector3(impulseDirection.x, 0, impulseDirection.z);
       if (horizDir.lengthSq() > 1e-5) horizDir.normalize();
       else horizDir.set(-Math.sin(this.yaw), 0, -Math.cos(this.yaw));
@@ -898,6 +1002,17 @@ export class BaseFighter {
       if (this.vfx && this.vfx.rockImpact) {
         this.vfx.rockImpact(this.position.clone().setY(this.position.y + 0.45), new THREE.Vector3(0, 1, 0), 1.35);
       }
+    } else if (ev.status === 'attack_slow') {
+      this.attackSlowTimer = Math.max(this.attackSlowTimer, ev.duration || 2.2);
+      this.attackSlowFactor = Math.max(this.attackSlowFactor, ev.factor || 0.4);
+      this.slowTimer = Math.max(this.slowTimer, ev.duration || 2.2);
+      this.slowFactor = Math.max(this.slowFactor, ev.factor || 0.4);
+      if (this.mesh && this.mesh.setAttackSlowed) this.mesh.setAttackSlowed(true);
+    } else if (ev.status === 'samurai_pull' && Array.isArray(ev.targetPos) && ev.targetPos.length === 3 && this.id === 'player') {
+      this.position.set(ev.targetPos[0], ev.targetPos[1], ev.targetPos[2]);
+      this.velocity.set(0, 0, 0);
+      this.isDashing = false;
+      this._dashTime = 0;
     }
 
     const isDotTick = ev.status === 'burn_tick' || ev.status === 'poison_tick';
@@ -1019,6 +1134,23 @@ export class BaseFighter {
       this.shadowSpeedBuffTimer = Math.max(0, this.shadowSpeedBuffTimer - dt);
       if (this.shadowSpeedBuffTimer <= 0) {
         this.shadowSpeedBuffStacks = 0;
+      }
+    }
+    if (this.slowTimer > 0) {
+      this.slowTimer = Math.max(0, this.slowTimer - dt);
+      if (this.slowTimer <= 0) this.slowFactor = 0;
+    }
+    if (this.attackSlowTimer > 0) {
+      this.attackSlowTimer = Math.max(0, this.attackSlowTimer - dt);
+      if (this.attackSlowTimer <= 0) {
+        this.attackSlowFactor = 0;
+        if (this.mesh && this.mesh.setAttackSlowed) this.mesh.setAttackSlowed(false);
+      }
+    }
+    if (this.shogunArmorTimer > 0) {
+      this.shogunArmorTimer = Math.max(0, this.shogunArmorTimer - dt);
+      if (this.shogunArmorTimer <= 0) {
+        if (this.mesh && this.mesh.setShogunArmor) this.mesh.setShogunArmor(false);
       }
     }
     if (this.mesh && this.mesh.setShadowVeil) {
@@ -1183,11 +1315,22 @@ export class BaseFighter {
       const mistSpeedMult = this.isMistFormActive ? 1.55 : 1;
       const veilBuffMult = this.inEclipseVeil ? 1.25 : 1;
       const veilSlowMult = this.shadowVeilSlowTimer > 0 ? 0.7 : 1;
+      const moveSlowMult = this.slowTimer > 0 ? Math.max(0.2, 1 - (this.slowFactor || 0.4)) : 1;
+      const monsterAttackSlowMove =
+        this.isMonster && this.attackSlowTimer > 0 ? Math.max(0.2, 1 - (this.attackSlowFactor || 0.4)) : 1;
+      const samuraiPassiveMult = this.element === 'samurai' ? 1.12 : 1;
       const shadowStackMult =
         this.shadowSpeedBuffTimer > 0 && this.shadowSpeedBuffStacks > 0
           ? 1 + 0.3 * Math.min(2, this.shadowSpeedBuffStacks)
           : 1;
-      const effSpeedMult = mistSpeedMult * veilBuffMult * veilSlowMult * shadowStackMult;
+      const effSpeedMult =
+        mistSpeedMult *
+        veilBuffMult *
+        veilSlowMult *
+        moveSlowMult *
+        monsterAttackSlowMove *
+        samuraiPassiveMult *
+        shadowStackMult;
       const targetVx = hasInput && this.isAlive ? wishDir.x * cfg.runSpeed * effSpeedMult : 0;
       const targetVz = hasInput && this.isAlive ? wishDir.z * cfg.runSpeed * effSpeedMult : 0;
       this.velocity.x += (targetVx - this.velocity.x) * k;

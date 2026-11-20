@@ -37,6 +37,11 @@ import {
   createShadowScytheGeo,
 } from '../utils/ShadowGeometry.js';
 import {
+  SAMURAI_PALETTE,
+  createShogunArmorParts,
+  createSlashArcGroup,
+} from '../utils/SamuraiGeometry.js';
+import {
   resolveElementFromTheme,
   buildCharacterAppearance,
   CHARACTER_OUTLINE_THICKNESS,
@@ -370,6 +375,34 @@ export const FIGHTER_THEMES = {
     band: '#e11d48',
     eye: '#e11d48',
   },
+  samurai: {
+    bareChest: false,
+    skin: '#f4d2ba',
+    tunic: '#991b1b',
+    tunicDark: '#111827',
+    ochre: '#eab308',
+    ochreDark: '#ca8a04',
+    pants: '#111827',
+    boots: '#0f172a',
+    wraps: '#cbd5e1',
+    hair: '#111827',
+    band: '#cbd5e1',
+    eye: '#eab308',
+  },
+  samurai_rival: {
+    bareChest: false,
+    skin: '#e6c2a8',
+    tunic: '#1e3a8a',
+    tunicDark: '#09090b',
+    ochre: '#d97706',
+    ochreDark: '#b45309',
+    pants: '#09090b',
+    boots: '#09090b',
+    wraps: '#e2e8f0',
+    hair: '#1e1b2e',
+    band: '#e2e8f0',
+    eye: '#e2e8f0',
+  },
 };
 
 const COLORS = FIGHTER_THEMES.player;
@@ -472,6 +505,14 @@ export class FighterMesh {
     this._shadowVeilGroup = null;
     this._shadowVeilPuffs = [];
     this._buildShadowVeil();
+
+    // Armadura del Shōgun 3D (Samurái Tecla E) y grilletes sutiles de Ralentización de Ataque
+    this._isShogunArmor = false;
+    this._shogunParts = null;
+    this._shogunAuraRing = null;
+    this._isAttackSlowed = false;
+    this._attackSlowRings = [];
+    this._attackSlowDisposables = [];
 
     // Aro luminoso a ras del suelo para identificación de equipos (2v2)
     this._teamRole = null;
@@ -840,6 +881,101 @@ export class FighterMesh {
     if (this._earthTrapData && this._earthTrapData.group) {
       this._earthTrapData.group.visible = next;
       if (next) this._earthTrapData.group.scale.set(1, 0.92, 1);
+    }
+  }
+
+  /** Equipa o retira la Armadura del Shōgun en 3D (kabuto, sode, dō, kote + aura) */
+  setShogunArmor(active) {
+    const next = !!active;
+    if (this._isShogunArmor === next) return;
+    this._isShogunArmor = next;
+
+    if (next && !this._shogunParts) {
+      const parts = createShogunArmorParts(this._builtRival);
+      const outlineGroup = (grp, thickness) => {
+        grp.traverse((c) => {
+          if (c.isMesh && !c.userData.isOutline && !c.userData.noOutline) {
+            c.castShadow = true;
+            addOutline(c, thickness, CHARACTER_OUTLINE_COLOR);
+          }
+        });
+      };
+      outlineGroup(parts.helmet, HEAD_OUTLINE_THICKNESS);
+      outlineGroup(parts.cuirass, CHARACTER_OUTLINE_THICKNESS);
+      outlineGroup(parts.shoulderL, CHARACTER_OUTLINE_THICKNESS);
+      outlineGroup(parts.shoulderR, CHARACTER_OUTLINE_THICKNESS);
+      outlineGroup(parts.koteL, DETAIL_OUTLINE_THICKNESS);
+      outlineGroup(parts.koteR, DETAIL_OUTLINE_THICKNESS);
+
+      this.joints.head.add(parts.helmet);
+      this.joints.chest.add(parts.cuirass);
+      this.joints.shoulderL.add(parts.shoulderL);
+      this.joints.shoulderR.add(parts.shoulderR);
+      this.joints.elbowL.add(parts.koteL);
+      this.joints.elbowR.add(parts.koteR);
+
+      const ringGeo = new THREE.RingGeometry(0.95, 1.24, 36);
+      ringGeo.rotateX(-Math.PI * 0.5);
+      const ringMat = createEnergyVFXMaterial({
+        coreColor: SAMURAI_PALETTE.gold,
+        rimColor: SAMURAI_PALETTE.brightCrimson,
+        opacity: 0.72,
+        additive: true,
+        softEdge: true,
+        depthWrite: false,
+      });
+      const auraRing = new THREE.Mesh(ringGeo, ringMat);
+      auraRing.position.y = 0.08;
+      auraRing.userData.noOutline = true;
+      this.root.add(auraRing);
+      parts.disposables.push(ringGeo, ringMat);
+      this._shogunAuraRing = auraRing;
+      this._shogunParts = parts;
+    }
+
+    if (this._shogunParts) {
+      const p = this._shogunParts;
+      p.helmet.visible = next;
+      p.cuirass.visible = next;
+      p.shoulderL.visible = next;
+      p.shoulderR.visible = next;
+      p.koteL.visible = next;
+      p.koteR.visible = next;
+    }
+    if (this._shogunAuraRing) {
+      this._shogunAuraRing.visible = next;
+    }
+  }
+
+  /** Muestra u oculta anillos/cadenas grises en antebrazos durante Ralentización de Ataque */
+  setAttackSlowed(active) {
+    const next = !!active;
+    if (this._isAttackSlowed === next) return;
+    this._isAttackSlowed = next;
+
+    if (next && this._attackSlowRings.length === 0) {
+      const linkGeo = new THREE.TorusGeometry(0.082, 0.012, 6, 16);
+      const linkMat = createEnergyVFXMaterial({
+        coreColor: '#cbd5e1',
+        rimColor: '#64748b',
+        opacity: 0.85,
+        additive: true,
+        softEdge: true,
+        depthWrite: false,
+      });
+      this._attackSlowDisposables.push(linkGeo, linkMat);
+      for (const elbow of [this.joints.elbowL, this.joints.elbowR]) {
+        const ring = new THREE.Mesh(linkGeo, linkMat);
+        ring.position.set(0, -FOREARM * 0.55, 0);
+        ring.rotation.set(Math.PI * 0.5, 0.25, 0);
+        ring.userData.noOutline = true;
+        elbow.add(ring);
+        this._attackSlowRings.push(ring);
+      }
+    }
+
+    for (const r of this._attackSlowRings) {
+      r.visible = next;
     }
   }
 
@@ -1318,6 +1454,19 @@ export class FighterMesh {
       this._earthTrapData.group.scale.set(1, sY, 1);
     }
 
+    if (this._isShogunArmor && this._shogunAuraRing) {
+      this._shogunAuraRing.rotation.y += dt * 2.8;
+      const pulse = 0.94 + 0.08 * Math.sin(this.time * 6.5);
+      this._shogunAuraRing.scale.setScalar(pulse);
+    }
+
+    if (this._isAttackSlowed && this._attackSlowRings.length > 0) {
+      for (let i = 0; i < this._attackSlowRings.length; i++) {
+        const r = this._attackSlowRings[i];
+        r.rotation.y += dt * 4.5 * (i === 0 ? 1 : -1);
+      }
+    }
+
     // Nubes vaporosas y arcos eléctricos chispeantes en Forma de Niebla
     if (this._isMistForm && this._mistData) {
       this._mistGroup.rotation.y += dt * 2.4;
@@ -1467,6 +1616,7 @@ export class FighterMesh {
       storm: STORM_PALETTE.electricBlue,
       light: LIGHT_PALETTE.solarGold,
       shadow: SHADOW_PALETTE.crimsonNeon,
+      samurai: SAMURAI_PALETTE.brightCrimson,
     };
 
     const ringGeo = new THREE.RingGeometry(1.75, 2.08, 48);
@@ -1831,6 +1981,51 @@ export class FighterMesh {
         soul.userData.noOutline = true;
         spinGroup.add(soul);
         this._auraParts.push({ kind: 'drop', obj: soul, phase: i * 1.5 + 0.6, baseY: 0.72 });
+      }
+    } else if (element === 'samurai') {
+      const bushidoMat = createEnergyVFXMaterial({
+        coreColor: SAMURAI_PALETTE.gold,
+        rimColor: SAMURAI_PALETTE.brightCrimson,
+        opacity: 0.9,
+        fresnelPower: 1.4,
+        rimIntensity: 1.5,
+        additive: true,
+        depthWrite: false,
+      });
+      const sparkMat = createEnergyVFXMaterial({
+        coreColor: '#ffffff',
+        rimColor: SAMURAI_PALETTE.gold,
+        opacity: 0.92,
+        additive: true,
+        softEdge: true,
+        depthWrite: false,
+      });
+      const bushidoRingGeo = new THREE.TorusGeometry(1.9, 0.048, 10, 44);
+      bushidoRingGeo.rotateX(Math.PI * 0.5);
+      const bushidoRing = new THREE.Mesh(bushidoRingGeo, bushidoMat);
+      bushidoRing.position.y = 0.36;
+      bushidoRing.userData.noOutline = true;
+      spinGroup.add(bushidoRing);
+
+      const sparkGeo = new THREE.SphereGeometry(0.088, 10, 8);
+      this._auraDisposables.push(bushidoMat, sparkMat, bushidoRingGeo, sparkGeo);
+
+      for (let i = 0; i < 4; i++) {
+        const ang = (i / 4) * Math.PI * 2;
+        const slash = createSlashArcGroup(0.68, Math.PI * 0.75, i % 2 === 0, false);
+        slash.group.position.set(Math.cos(ang) * 1.85, 0.92, Math.sin(ang) * 1.85);
+        slash.group.rotation.set(0.32, -ang + Math.PI * 0.5, 0.2);
+        spinGroup.add(slash.group);
+        this._auraDisposables.push(slash);
+        this._auraParts.push({ kind: 'drop', obj: slash.group, phase: i * 1.4, baseY: 0.92 });
+      }
+      for (let i = 0; i < 6; i++) {
+        const ang = (i / 6) * Math.PI * 2 + 0.3;
+        const sp = new THREE.Mesh(sparkGeo, sparkMat);
+        sp.position.set(Math.cos(ang) * 1.62, 0.65, Math.sin(ang) * 1.62);
+        sp.userData.noOutline = true;
+        spinGroup.add(sp);
+        this._auraParts.push({ kind: 'drop', obj: sp, phase: i * 1.1 + 0.4, baseY: 0.65 });
       }
     } else {
       const windMat = createEnergyVFXMaterial({
@@ -2426,6 +2621,132 @@ const CRESCENT_KICK = {
   ],
 };
 
+const KATANA_SLASH_1 = {
+  duration: 0.32,
+  fadeIn: 0.04,
+  fadeOut: 0.1,
+  fullBody: false,
+  keys: [
+    { t: 0, pose: {} },
+    {
+      t: 0.24,
+      ease: 'in',
+      pose: {
+        'spine.ry': -0.42, 'chest.ry': -0.48, 'head.ry': 0.55,
+        'shoulderR.rx': -0.85, 'shoulderR.ry': -0.75, 'shoulderR.rz': -1.05, 'elbowR.rx': -0.55, 'wristR.rx': -0.35,
+        'shoulderL.rx': 0.35, 'elbowL.rx': -0.8,
+      },
+    },
+    {
+      t: 0.55,
+      ease: 'out',
+      pose: {
+        'spine.rx': 0.18, 'spine.ry': 0.52, 'chest.ry': 0.58, 'head.ry': -0.68,
+        'shoulderR.rx': -1.25, 'shoulderR.ry': 0.85, 'shoulderR.rz': 0.35, 'elbowR.rx': -0.12, 'wristR.rx': -0.55,
+        'shoulderL.rx': 0.55, 'shoulderL.rz': 0.4,
+      },
+    },
+    { t: 1, pose: {} },
+  ],
+};
+
+const KATANA_SLASH_2 = {
+  duration: 0.34,
+  fadeIn: 0.04,
+  fadeOut: 0.1,
+  fullBody: false,
+  keys: [
+    { t: 0, pose: {} },
+    {
+      t: 0.22,
+      ease: 'in',
+      pose: {
+        'spine.rx': 0.22, 'spine.ry': 0.4, 'chest.ry': 0.45,
+        'shoulderR.rx': 0.35, 'shoulderR.rz': -0.35, 'elbowR.rx': -0.75, 'wristR.rx': -0.4,
+      },
+    },
+    {
+      t: 0.54,
+      ease: 'out',
+      pose: {
+        'spine.rx': -0.14, 'spine.ry': -0.45, 'chest.ry': -0.48, 'head.ry': 0.45,
+        'shoulderR.rx': -2.25, 'shoulderR.ry': -0.35, 'shoulderR.rz': -0.65, 'elbowR.rx': -0.18, 'wristR.rx': -0.45,
+        'shoulderL.rx': 0.45, 'elbowL.rx': -0.75,
+      },
+    },
+    { t: 1, pose: {} },
+  ],
+};
+
+const KATANA_SPIN = {
+  duration: 0.44,
+  fadeIn: 0.04,
+  fadeOut: 0.1,
+  fullBody: true,
+  keys: [
+    { t: 0, pose: {} },
+    {
+      t: 0.22,
+      ease: 'in',
+      pose: {
+        'hips.py': -0.08, 'hips.ry': -0.6,
+        'spine.ry': -0.45, 'chest.ry': -0.45,
+        'shoulderR.rx': -1.35, 'shoulderR.rz': -1.35, 'elbowR.rx': -0.15, 'wristR.rx': -0.5,
+      },
+    },
+    {
+      t: 0.62,
+      ease: 'linear',
+      pose: {
+        'hips.py': -0.02, 'hips.ry': 3.14,
+        'spine.rx': 0.16, 'chest.ry': 0.35,
+        'shoulderR.rx': -1.45, 'shoulderR.rz': -1.42, 'elbowR.rx': -0.1, 'wristR.rx': -0.6,
+        'shoulderL.rx': -1.0, 'shoulderL.rz': 1.15,
+      },
+    },
+    {
+      t: 0.82,
+      ease: 'out',
+      pose: {
+        'hips.ry': 6.28,
+        'shoulderR.rx': -1.25, 'shoulderR.rz': -0.4,
+      },
+    },
+    { t: 1, pose: {} },
+  ],
+};
+
+const FALCON_LEAP = {
+  duration: 0.52,
+  fadeIn: 0.05,
+  fadeOut: 0.12,
+  fullBody: true,
+  keys: [
+    { t: 0, pose: {} },
+    {
+      t: 0.35,
+      ease: 'out',
+      pose: {
+        'hips.py': 0.12, 'spine.rx': -0.18,
+        'shoulderR.rx': -2.55, 'shoulderR.rz': -0.25, 'elbowR.rx': -0.35, 'wristR.rx': -0.4,
+        'shoulderL.rx': -2.2, 'shoulderL.rz': 0.35, 'elbowL.rx': -0.45,
+        'hipL.rx': -0.85, 'kneeL.rx': 1.25, 'hipR.rx': -0.65, 'kneeR.rx': 1.1,
+      },
+    },
+    {
+      t: 0.78,
+      ease: 'in',
+      pose: {
+        'hips.py': -0.16, 'spine.rx': 0.42, 'chest.rx': 0.25,
+        'shoulderR.rx': -0.65, 'shoulderR.rz': 0.15, 'elbowR.rx': -0.18, 'wristR.rx': -0.75,
+        'shoulderL.rx': 0.45, 'shoulderL.rz': 0.55,
+        'hipL.rx': -0.75, 'kneeL.rx': 1.05, 'hipR.rx': 0.35, 'kneeR.rx': 0.65,
+      },
+    },
+    { t: 1, pose: {} },
+  ],
+};
+
 const ACTIONS = {
   punch_right: compileAction(PUNCH_RIGHT),
   punch_left: compileAction(mirrorAction(PUNCH_RIGHT)),
@@ -2434,6 +2755,10 @@ const ACTIONS = {
   heavy_throw: compileAction(HEAVY_THROW),
   hit_react: compileAction(HIT_REACT),
   crescent_kick: compileAction(CRESCENT_KICK),
+  katana_slash1: compileAction(KATANA_SLASH_1),
+  katana_slash2: compileAction(KATANA_SLASH_2),
+  katana_spin: compileAction(KATANA_SPIN),
+  falcon_leap: compileAction(FALCON_LEAP),
 };
 
 export const ACTION_DURATIONS = Object.fromEntries(

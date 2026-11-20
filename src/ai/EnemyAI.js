@@ -341,8 +341,8 @@ export class EnemyAI {
     // --- 3. Cálculo de movimiento (POSITIONING + Patrulla + Flanqueo + Conciencia espacial) ---
     _wish.set(0, 0, 0);
     const elem = ctrl.element || 'earth';
-    const minOpt = elem === 'water' ? 3.8 : elem === 'fire' ? 5.4 : elem === 'air' ? 8.5 : 9.5;
-    const maxOpt = elem === 'water' ? 6.4 : elem === 'fire' ? 10.2 : elem === 'air' ? 14.8 : 16.0;
+    const minOpt = elem === 'samurai' ? 1.6 : elem === 'water' ? 3.8 : elem === 'fire' ? 5.4 : elem === 'air' ? 8.5 : 9.5;
+    const maxOpt = elem === 'samurai' ? 3.2 : elem === 'water' ? 6.4 : elem === 'fire' ? 10.2 : elem === 'air' ? 14.8 : 16.0;
 
     if (this._unblockTimer > 0) this._unblockTimer = Math.max(0, this._unblockTimer - dt);
 
@@ -549,10 +549,10 @@ export class EnemyAI {
     const clearLine = !this._isBlockedInFront(3.8);
     const targetEdgeDist = Math.hypot(target.position.x, target.position.z);
 
-    const s2Min = elem === 'fire' ? 6.0 : elem === 'water' ? 4.2 : elem === 'air' ? 5.5 : elem === 'nature' ? 4.5 : elem === 'psychic' ? 5.0 : elem === 'storm' ? 5.0 : elem === 'light' ? 4.5 : elem === 'shadow' ? 0.0 : 8.5;
-    const s2Max = elem === 'fire' ? 17.5 : elem === 'water' ? 16.0 : elem === 'air' ? 16.5 : elem === 'nature' ? 20.0 : elem === 'psychic' ? 20.0 : elem === 'storm' ? 20.0 : elem === 'light' ? 18.0 : elem === 'shadow' ? 11.5 : 25.0;
-    const s1Max = elem === 'fire' ? 9.0 : elem === 'water' ? 23.0 : elem === 'air' ? 13.0 : elem === 'nature' ? 20.0 : elem === 'psychic' ? 4.8 : elem === 'storm' ? 23.0 : elem === 'light' ? 4.6 : elem === 'shadow' ? 18.0 : 13.5;
-    const primaryMax = elem === 'water' ? 6.5 : elem === 'fire' ? 11.4 : 29.0;
+    const s2Min = elem === 'fire' ? 6.0 : elem === 'water' ? 4.2 : elem === 'air' ? 5.5 : elem === 'nature' ? 4.5 : elem === 'psychic' ? 5.0 : elem === 'storm' ? 5.0 : elem === 'light' ? 4.5 : elem === 'shadow' ? 0.0 : elem === 'samurai' ? 0.0 : 8.5;
+    const s2Max = elem === 'fire' ? 17.5 : elem === 'water' ? 16.0 : elem === 'air' ? 16.5 : elem === 'nature' ? 20.0 : elem === 'psychic' ? 20.0 : elem === 'storm' ? 20.0 : elem === 'light' ? 18.0 : elem === 'shadow' ? 11.5 : elem === 'samurai' ? 6.5 : 25.0;
+    const s1Max = elem === 'fire' ? 9.0 : elem === 'water' ? 23.0 : elem === 'air' ? 13.0 : elem === 'nature' ? 20.0 : elem === 'psychic' ? 4.8 : elem === 'storm' ? 23.0 : elem === 'light' ? 4.6 : elem === 'shadow' ? 18.0 : elem === 'samurai' ? 14.5 : 13.5;
+    const primaryMax = elem === 'samurai' ? (enemy.isShogunArmor ? 4.8 : 3.8) : elem === 'water' ? 6.5 : elem === 'fire' ? 11.4 : 29.0;
     const [pauseMin, pauseMax] = this.burstPauseRange;
     const nextBurstPause = () => pauseMin + Math.random() * Math.max(0.05, pauseMax - pauseMin);
     const isGrandmaster = this.difficulty === 'grandmaster';
@@ -729,6 +729,35 @@ export class EnemyAI {
       this._attackPause = isGrandmaster ? 0.3 : 0.6;
       this.decisionTimer = this._attackPause;
       return;
+    }
+
+    // 0k. Samurái: Cadena Kunai a media distancia, Salto del Halcón para cerrar brecha, Armadura Shōgun al entrar y combo rápido de 3 tajos
+    if (elem === 'samurai') {
+      if (ctrl.comboStep > 0 && ctrl.isReady('primary') && distToPlayer <= primaryMax) {
+        ctrl.tryPrimary(enemy.aimPoint);
+        const stepDelay = isGrandmaster ? 0.07 : 0.14;
+        this._attackPause = ctrl.comboStep === 0 ? nextBurstPause() : stepDelay;
+        this.decisionTimer = this._attackPause;
+        return;
+      }
+      if (ctrl.isReady('secondary') && distToPlayer >= 3.8 && distToPlayer <= 17.5) {
+        ctrl.trySecondary(enemy.aimPoint);
+        this._attackPause = isGrandmaster ? 0.18 : 0.38;
+        this.decisionTimer = this._attackPause;
+        return;
+      }
+      if (ctrl.isReady('skill1') && enemy.onGround && distToPlayer >= 4.5 && distToPlayer <= 14.5) {
+        ctrl.trySkill1(enemy.aimPoint);
+        this._attackPause = isGrandmaster ? 0.25 : 0.5;
+        this.decisionTimer = this._attackPause;
+        return;
+      }
+      if (ctrl.isReady('skill2') && distToPlayer <= 6.2 && !enemy.isShogunArmor) {
+        ctrl.trySkill2();
+        this._attackPause = isGrandmaster ? 0.2 : 0.42;
+        this.decisionTimer = this._attackPause;
+        return;
+      }
     }
 
     // 1. Habilidad E

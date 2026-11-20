@@ -638,6 +638,7 @@ export class HUD {
       { id: 'storm', label: '⛈️ Tormenta' },
       { id: 'light', label: '✨ Luz' },
       { id: 'shadow', label: '🌑 Sombra' },
+      { id: 'samurai', label: '⚔️ Samurái' },
     ]
       .map(
         (opt) => `
@@ -897,6 +898,7 @@ export class HUD {
                   <button type="button" class="lobby-elem-btn lobby-elem-storm" data-lobby-element="storm">⛈️ Tormenta</button>
                   <button type="button" class="lobby-elem-btn lobby-elem-light" data-lobby-element="light">✨ Luz</button>
                   <button type="button" class="lobby-elem-btn lobby-elem-shadow" data-lobby-element="shadow">🌑 Sombra</button>
+                  <button type="button" class="lobby-elem-btn lobby-elem-samurai" data-lobby-element="samurai">⚔️ Samurái</button>
                 </div>
 
                 <div class="lobby-host-config hidden" data-lobby-host-config>
@@ -1210,6 +1212,7 @@ export class HUD {
     }
 
     this._cardEls = Array.from(this.selectOverlay.querySelectorAll('[data-element-card]'));
+    this._elementGridEl = this.selectOverlay.querySelector('.element-cards-grid');
     for (const card of this._cardEls) {
       card.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -1687,10 +1690,13 @@ export class HUD {
     }
   }
 
-  /** Muestra los 9 elementos en Dojo o Ruleta Clásica + Legendarios en los demás formatos */
+  /** Muestra los 10 personajes en Dojo (5×2) o Ruleta Clásica + Legendarios en los demás formatos */
   _syncStep2ElementCards() {
     if (!this._cardEls) return;
     const isDojo = this.selectedFormat === 'dojo';
+    if (this._elementGridEl) {
+      this._elementGridEl.classList.toggle('dojo-grid-5x2', isDojo);
+    }
 
     if (isDojo) {
       if (this.selectedPlayerElement === 'classic_roulette' || !ELEMENT_KEYS.includes(this.selectedPlayerElement)) {

@@ -8,8 +8,8 @@
 export const ECONOMY_STORAGE_KEY = 'elemental_arena_save_v1';
 
 export const CLASSIC_ELEMENTS = ['earth', 'fire', 'water', 'air'];
-export const LEGENDARY_ELEMENTS = ['nature', 'psychic', 'storm', 'light', 'shadow'];
-export const LEGENDARY_COSTS = [150, 200, 250, 300, 300];
+export const LEGENDARY_ELEMENTS = ['nature', 'psychic', 'storm', 'light', 'shadow', 'samurai'];
+export const LEGENDARY_COSTS = [150, 200, 250, 300, 300, 300];
 
 export class EconomyManager {
   constructor(storageKey = ECONOMY_STORAGE_KEY) {

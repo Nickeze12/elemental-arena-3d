@@ -244,14 +244,32 @@ export class CombatManager {
 
   update(dt) {
     for (const c of this.controllers) {
+      const f = c.fighter;
+      const hasAttackSlow = f && f.attackSlowTimer > 0 && c.cooldowns;
+      let prevCds = null;
+      if (hasAttackSlow) {
+        prevCds = {};
+        for (const k of Object.keys(c.cooldowns)) {
+          prevCds[k] = c.cooldowns[k];
+        }
+      }
       c.update(dt);
+      if (hasAttackSlow && prevCds) {
+        const rate = Math.max(0.2, 1 - (f.attackSlowFactor || 0.4));
+        for (const k of Object.keys(prevCds)) {
+          if (prevCds[k] > 0) {
+            c.cooldowns[k] = Math.max(0, prevCds[k] - dt * rate);
+          }
+        }
+      }
     }
     if (this.player && this.player.survivalMods) {
       const sm = this.player.survivalMods;
-      const effectiveCdMult = (sm.cooldownMult || 1) * (sm.auraCooldownMult || 1);
-      if (effectiveCdMult < 0.999) {
-        const bonusRate = 1 / Math.max(0.2, effectiveCdMult) - 1;
-        const extraDt = dt * bonusRate;
+      const cdScale = (sm.cooldownMult || 1) * (sm.auraCooldownMult || 1);
+      if (cdScale < 0.999) {
+        const bonusRate = 1 / Math.max(0.2, cdScale) - 1;
+        const slowScale = this.player.attackSlowTimer > 0 ? Math.max(0.2, 1 - (this.player.attackSlowFactor || 0.4)) : 1;
+        const extraDt = dt * bonusRate * slowScale;
         if (this.player.dashCooldown > 0) {
           this.player.dashCooldown = Math.max(0, this.player.dashCooldown - extraDt);
         }

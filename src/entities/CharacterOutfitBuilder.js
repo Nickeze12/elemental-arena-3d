@@ -5,6 +5,11 @@ import { createRuneHaloGroup, PSYCHIC_PALETTE } from '../utils/PsychicGeometry.j
 import { STORM_PALETTE } from '../utils/StormGeometry.js';
 import { LIGHT_PALETTE } from '../utils/LightGeometry.js';
 import { SHADOW_PALETTE } from '../utils/ShadowGeometry.js';
+import {
+  SAMURAI_PALETTE,
+  createKatanaGroup,
+  createSayaGroup,
+} from '../utils/SamuraiGeometry.js';
 
 /**
  * CharacterOutfitBuilder
@@ -33,6 +38,7 @@ export function resolveElementFromTheme(themeName) {
   if (lower.startsWith('storm')) return { element: 'storm', isRival };
   if (lower.startsWith('light')) return { element: 'light', isRival };
   if (lower.startsWith('shadow')) return { element: 'shadow', isRival };
+  if (lower.startsWith('samurai')) return { element: 'samurai', isRival };
   return { element: 'earth', isRival };
 }
 
@@ -816,7 +822,12 @@ function buildAnimeFaceAndHead(head, M, element, isRival, tracker, secondaryPart
           emissive: isRival ? SHADOW_PALETTE.rivalMagenta : SHADOW_PALETTE.crimsonNeon,
           emissiveIntensity: 0.65,
         })
-      : M.eye;
+      : element === 'samurai'
+        ? createToonMaterial(isRival ? SAMURAI_PALETTE.rivalBronze : SAMURAI_PALETTE.gold, {
+            emissive: isRival ? SAMURAI_PALETTE.rivalBronze : SAMURAI_PALETTE.brightCrimson,
+            emissiveIntensity: 0.42,
+          })
+        : M.eye;
   extraMaterials.push(scleraMat, pupilMat, specMat);
   if (irisMat !== M.eye) extraMaterials.push(irisMat);
 
@@ -1075,6 +1086,26 @@ function buildAnimeFaceAndHead(head, M, element, isRival, tracker, secondaryPart
       );
       addTrackedMesh(head, strandGeo, b === 0 || b === 5 ? violetTipMat : M.hair, tracker);
     }
+  } else if (element === 'samurai') {
+    // Peinado rōnin afilado con mechones laterales enmarcando la cinta metálica
+    for (let b = 0; b < 5; b++) {
+      const t = (b / 4) * 2 - 1;
+      const sx = t * 0.068;
+      const dropY = b === 0 || b === 4 ? 0.118 : 0.148 - Math.abs(t) * 0.01;
+      const strandGeo = createCurvedStrandGeo(
+        [
+          new THREE.Vector3(sx * 0.45, 0.218, 0.03),
+          new THREE.Vector3(sx * 0.96, 0.185, 0.1),
+          new THREE.Vector3(sx * 1.1 + (b === 2 ? 0.015 : 0), dropY, 0.112 - Math.abs(t) * 0.018),
+        ],
+        0.02,
+        0.0028,
+        16,
+        10,
+        0.52
+      );
+      addTrackedMesh(head, strandGeo, M.hair, tracker);
+    }
   } else {
     // Fuego (real escalonado), Agua (suave partido), Tierra (abundante barrido)
     const bangCount = element === 'fire' ? 5 : 4;
@@ -1220,6 +1251,17 @@ function buildAnimeFaceAndHead(head, M, element, isRival, tracker, secondaryPart
         castShadow: false,
         scale: [1, 1, 0.35],
       });
+    } else if (element === 'samurai') {
+      // Cinta frontal metálica estilo hachigane rōnin
+      const plateMat = createToonMaterial(isRival ? SAMURAI_PALETTE.rivalSilver : SAMURAI_PALETTE.steel);
+      const trimMat = createToonMaterial(isRival ? SAMURAI_PALETTE.rivalBronze : SAMURAI_PALETTE.gold);
+      extraMaterials.push(plateMat, trimMat);
+      addTrackedMesh(head, new THREE.BoxGeometry(0.112, 0.032, 0.014), plateMat, tracker, 0, 0.158, 0.115, {
+        castShadow: false,
+      });
+      addTrackedMesh(head, new THREE.OctahedronGeometry(0.015, 0), trimMat, tracker, 0, 0.158, 0.124, {
+        castShadow: false,
+      });
     }
   }
 
@@ -1266,7 +1308,7 @@ function buildAnimeFaceAndHead(head, M, element, isRival, tracker, secondaryPart
   }
 
   // Cintas colgantes subdivididas y broches de hojas en coleta
-  if (element === 'earth' || element === 'fire' || element === 'nature' || element === 'psychic' || element === 'storm' || element === 'light' || element === 'shadow') {
+  if (element === 'earth' || element === 'fire' || element === 'nature' || element === 'psychic' || element === 'storm' || element === 'light' || element === 'shadow' || element === 'samurai') {
     const ribbonGeo = createCurvedClothPanelGeo({
       width: 0.022,
       height: 0.16,
@@ -2045,6 +2087,65 @@ export function buildCharacterAppearance({
     for (const sf of shadowFlaps) {
       addSkirtFlap(hips, { ...sf, mat: M.tunicDark, trimMat: shadowVioletMat, trimMat2: shadowCrimsonMat, baseTilt: 0.16 });
     }
+  } else if (element === 'samurai') {
+    // --- SAMURÁI (RŌNIN) ---
+    // Túnica marcial cruzada negro-carmesí, hakama con pliegues amplios, fajín dorado y vaina (saya) en cintura izquierda
+    addTrackedMesh(spine, createAthleticAbdomenGeometry(), M.tunicDark, tracker, 0, 0, 0);
+    addTrackedMesh(chest, createAthleticChestGeometry(), M.tunicDark, tracker, 0, 0, 0);
+
+    // Solapas cruzadas estilo keikogi negro/carmesí
+    addTrackedMesh(chest, createContouredChestStrapGeo(0.095, 0.36, 0.02, 0.056), M.tunic, tracker, -0.02, 0.21, 0.102, {
+      rot: [0.05, 0, 0.28],
+    });
+    addTrackedMesh(chest, createContouredChestStrapGeo(0.088, 0.36, 0.022, 0.058), M.tunicDark, tracker, 0.026, 0.21, 0.106, {
+      rot: [0.05, 0, -0.28],
+    });
+    addTrackedMesh(chest, createContouredChestStrapGeo(0.022, 0.35, 0.024, 0.06), M.ochre, tracker, 0.015, 0.212, 0.114, {
+      rot: [0.05, 0, -0.26],
+      noOutline: true,
+    });
+
+    // Cuello de kimono rígido + bufanda ligera carmesí en hombros
+    const samCollar = addTrackedMesh(
+      chest,
+      createDrapedShawlGeo({ rx: 0.165, rz: 0.12, tubeR: 0.03, drapeFront: 0.032, drapeBack: 0.025 }),
+      M.tunic,
+      tracker,
+      0,
+      0.34,
+      0.004
+    );
+    samCollar.castShadow = true;
+
+    // Fajín dorado (obi) + nudo delantero + saya (funda de katana en la cadera izquierda)
+    addTrackedMesh(hips, createFittedSashGeometry(0.156, 0.116, 0.096), M.ochre, tracker, 0, 0.052, 0);
+    addTrackedMesh(hips, createFittedSashGeometry(0.16, 0.12, 0.028), M.tunic, tracker, 0, 0.05, 0);
+    addTrackedMesh(hips, createRoundedBuckleGeo(0.052, 0.044, 0.022), M.ochreDark, tracker, 0, 0.054, 0.118);
+
+    // Vaina (saya) curva en el costado izquierdo (x > 0 es lado izquierdo del personaje)
+    const saya = createSayaGroup(isRival);
+    saya.group.position.set(0.175, 0.03, 0.02);
+    saya.group.rotation.set(-0.34, -0.14, 0.06);
+    hips.add(saya.group);
+    tracker.push(saya.group);
+    saya.group.traverse((c) => {
+      if (c.isMesh) {
+        c.castShadow = true;
+        tracker.push(c);
+      }
+    });
+    extraMaterials.push(...saya.materials);
+
+    // Pliegues amplios de hakama alrededor de la cadera
+    const hakamaFlaps = [
+      { x: 0, y: 0.012, z: 0.115, ry: 0, w: 0.22, h: 0.34, axis: 'rx', sign: -1, phase: 0.2 },
+      { x: 0.155, y: 0.012, z: 0.01, ry: Math.PI / 2, w: 0.2, h: 0.35, axis: 'rz', sign: 1, phase: 1.0 },
+      { x: -0.155, y: 0.012, z: 0.01, ry: -Math.PI / 2, w: 0.2, h: 0.35, axis: 'rz', sign: -1, phase: 1.8 },
+      { x: 0, y: 0.012, z: -0.118, ry: Math.PI, w: 0.23, h: 0.36, axis: 'rx', sign: 1, phase: 2.6 },
+    ];
+    for (const hf of hakamaFlaps) {
+      addSkirtFlap(hips, { ...hf, mat: M.pants, trimMat: M.ochre, trimMat2: M.tunic, baseTilt: 0.18 });
+    }
   } else {
     // --- MAESTRO AIRE ---
     const airBodyMat = isRival ? M.tunic : M.ochre;
@@ -2118,11 +2219,13 @@ export function buildCharacterAppearance({
     const sleeveMat =
       element === 'water' || element === 'nature' || element === 'psychic' || element === 'light' || element === 'shadow'
         ? M.tunic
-        : element === 'earth' || element === 'storm'
-          ? M.tunic
-          : element === 'air'
-            ? (isRival ? M.tunic : M.ochre)
-            : M.tunicDark;
+        : element === 'samurai'
+          ? M.tunicDark
+          : element === 'earth' || element === 'storm'
+            ? M.tunic
+            : element === 'air'
+              ? (isRival ? M.tunic : M.ochre)
+              : M.tunicDark;
 
     addTrackedMesh(
       shoulder,
@@ -2137,7 +2240,7 @@ export function buildCharacterAppearance({
     addTrackedMesh(
       shoulder,
       createTaperedLimbGeometry(0.062, 0.048, UPPER_ARM, 1.0, 1.08),
-      element === 'fire' || element === 'nature' || element === 'storm' || element === 'light' || element === 'shadow' ? M.skin : sleeveMat,
+      element === 'fire' || element === 'nature' || element === 'storm' || element === 'light' || element === 'shadow' || element === 'samurai' ? M.skin : sleeveMat,
       tracker,
       0,
       0,
@@ -2333,11 +2436,27 @@ export function buildCharacterAppearance({
 
     // Manos anatómicas esculpidas
     buildSculptedHand(wrist, M, s, tracker, element === 'water', M.tunicDark);
+
+    // Katana curva empuñada en la mano derecha del Samurái (side === 'R')
+    if (element === 'samurai' && side === 'R') {
+      const katana = createKatanaGroup(isRival);
+      katana.group.position.set(0, -0.04, 0.03);
+      katana.group.rotation.set(0.08, 0, -0.06);
+      wrist.add(katana.group);
+      tracker.push(katana.group);
+      katana.group.traverse((c) => {
+        if (c.isMesh) {
+          c.castShadow = true;
+          tracker.push(c);
+        }
+      });
+      extraMaterials.push(...katana.materials);
+    }
   }
 
   // 4. Piernas orgánicas, polainas suaves y botas marciales curvas
   const legStyle =
-    element === 'earth'
+    element === 'earth' || element === 'samurai'
       ? 'hakama'
       : element === 'air' || element === 'nature' || element === 'psychic' || element === 'storm' || element === 'light'
         ? 'loose'

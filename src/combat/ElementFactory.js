@@ -7,6 +7,7 @@ import { PsychicController } from './PsychicController.js';
 import { StormController } from './StormController.js';
 import { LightController } from './LightController.js';
 import { ShadowController } from './ShadowController.js';
+import { SamuraiController } from './SamuraiController.js';
 
 /**
  * ElementFactory
@@ -169,9 +170,26 @@ export const ELEMENTS = {
       { slot: 'skill2', id: 'eclipseveil', key: 'E', name: 'Velo de Eclipse' },
     ],
   },
+  samurai: {
+    id: 'samurai',
+    name: 'Samurái',
+    title: 'EL SAMURÁI',
+    rivalTitle: 'RIVAL SAMURÁI',
+    icon: '⚔️',
+    color: '#ef4444',
+    accent: '#eab308',
+    style: 'Acero, Cadena Kunai y Armadura del Shōgun',
+    description: 'Combate cuerpo a cuerpo con katana, atrae y ralentiza enemigos con Cadena Kunai, salta con Salto del Halcón y equipa Armadura del Shōgun.',
+    abilities: [
+      { slot: 'primary', id: 'katana', key: 'Click Izq', name: 'Combo Katana' },
+      { slot: 'secondary', id: 'kunai', key: 'Click Der', name: 'Cadena Kunai' },
+      { slot: 'skill1', id: 'falcon', key: 'Q', name: 'Salto del Halcón' },
+      { slot: 'skill2', id: 'shogun', key: 'E', name: 'Armadura Shōgun' },
+    ],
+  },
 };
 
-export const ELEMENT_KEYS = ['earth', 'fire', 'water', 'air', 'nature', 'psychic', 'storm', 'light', 'shadow'];
+export const ELEMENT_KEYS = ['earth', 'fire', 'water', 'air', 'nature', 'psychic', 'storm', 'light', 'shadow', 'samurai'];
 
 export function getElementConfig(element) {
   return ELEMENTS[element] || ELEMENTS.earth;
@@ -203,6 +221,8 @@ export function createElementController(element, manager, fighter, aimProvider =
       return new LightController(manager, fighter, aimProvider, cooldownBonus);
     case 'shadow':
       return new ShadowController(manager, fighter, aimProvider, cooldownBonus);
+    case 'samurai':
+      return new SamuraiController(manager, fighter, aimProvider, cooldownBonus);
     case 'earth':
     default:
       return new EarthController(manager, fighter, aimProvider, cooldownBonus);

@@ -1114,6 +1114,38 @@ export class MonsterMesh {
     }
   }
 
+  setAttackSlowed(active) {
+    this._isAttackSlowed = !!active;
+    if (this._isAttackSlowed && !this._attackSlowGroup) {
+      const scale = this.type === 'colossus' ? 1.75 : this.type === 'golem' ? 1.3 : 0.95;
+      const g = new THREE.Group();
+      const ringGeo = new THREE.TorusGeometry(0.62 * scale, 0.026 * scale, 6, 20);
+      const ringMat = createEnergyVFXMaterial({
+        coreColor: '#cbd5e1',
+        rimColor: '#64748b',
+        opacity: 0.85,
+        additive: true,
+        softEdge: true,
+        depthWrite: false,
+      });
+      const r1 = new THREE.Mesh(ringGeo, ringMat);
+      r1.position.y = 1.05 * scale;
+      r1.rotation.set(Math.PI * 0.5 + 0.25, 0.2, 0);
+      r1.userData.noOutline = true;
+      const r2 = new THREE.Mesh(ringGeo, ringMat);
+      r2.position.y = 1.25 * scale;
+      r2.rotation.set(Math.PI * 0.5 - 0.25, -0.2, 0);
+      r2.userData.noOutline = true;
+      g.add(r1, r2);
+      this.root.add(g);
+      this._attackSlowGroup = g;
+      this._disposables.push(ringGeo, ringMat);
+    }
+    if (this._attackSlowGroup) {
+      this._attackSlowGroup.visible = this._isAttackSlowed;
+    }
+  }
+
   setTelegraphCharge(intensity = 0) {
     this._telegraphCharge = THREE.MathUtils.clamp(intensity, 0, 1);
   }

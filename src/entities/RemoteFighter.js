@@ -152,11 +152,20 @@ export class RemoteFighter extends BaseFighter {
     this.mistFormTimer = 0;
     this.shadowStepVeilTimer = 0;
     this.inEclipseVeil = false;
+    this.shogunArmorTimer = 0;
+    this.attackSlowTimer = 0;
+    this.slowTimer = 0;
     if (this.mesh && this.mesh.setMistForm) {
       this.mesh.setMistForm(false);
     }
     if (this.mesh && this.mesh.setShadowVeil) {
       this.mesh.setShadowVeil(false);
+    }
+    if (this.mesh && this.mesh.setShogunArmor) {
+      this.mesh.setShogunArmor(false);
+    }
+    if (this.mesh && this.mesh.setAttackSlowed) {
+      this.mesh.setAttackSlowed(false);
     }
     if (this.mesh && this.mesh.setElementalAura) {
       this.mesh.setElementalAura(this.element, false);
@@ -267,6 +276,14 @@ export class RemoteFighter extends BaseFighter {
       if (typeof s.isShadowVeil === 'boolean') {
         this.shadowStepVeilTimer = s.isShadowVeil ? Math.max(this.shadowStepVeilTimer || 0, 0.25) : 0;
         if (this.mesh.setShadowVeil) this.mesh.setShadowVeil(s.isShadowVeil || this.inEclipseVeil);
+      }
+      if (typeof s.isShogunArmor === 'boolean') {
+        this.shogunArmorTimer = s.isShogunArmor ? Math.max(this.shogunArmorTimer || 0, 0.25) : 0;
+        if (this.mesh.setShogunArmor) this.mesh.setShogunArmor(s.isShogunArmor);
+      }
+      if (typeof s.isAttackSlowed === 'boolean') {
+        this.attackSlowTimer = s.isAttackSlowed ? Math.max(this.attackSlowTimer || 0, 0.25) : 0;
+        if (this.mesh.setAttackSlowed) this.mesh.setAttackSlowed(s.isAttackSlowed);
       }
       if (typeof s.auraActive === 'boolean' && s.auraActive !== this.auraActive) {
         this.auraActive = s.auraActive;

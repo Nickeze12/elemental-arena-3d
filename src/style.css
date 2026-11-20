@@ -941,6 +941,10 @@ body {
   gap: 7px;
 }
 
+.element-cards-grid.dojo-grid-5x2 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .element-card[data-element-card="light"] {
   background: linear-gradient(155deg, rgba(30, 34, 44, 0.88), rgba(20, 22, 30, 0.88));
 }
@@ -959,14 +963,25 @@ body {
   box-shadow: 0 0 18px rgba(244, 63, 94, 0.38);
 }
 
+.element-card[data-element-card="samurai"] {
+  background: linear-gradient(155deg, rgba(24, 14, 16, 0.92), rgba(62, 16, 20, 0.88));
+}
+
+.element-card[data-element-card="samurai"].selected {
+  background: linear-gradient(155deg, rgba(36, 16, 18, 0.96), rgba(110, 24, 28, 0.94));
+  box-shadow: 0 0 18px rgba(234, 179, 8, 0.36);
+}
+
 @media (max-width: 900px) {
-  .element-cards-grid {
+  .element-cards-grid,
+  .element-cards-grid.dojo-grid-5x2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 580px) {
-  .element-cards-grid {
+  .element-cards-grid,
+  .element-cards-grid.dojo-grid-5x2 {
     grid-template-columns: 1fr;
   }
 }
@@ -3127,7 +3142,8 @@ body.touch-mode .dojo-close-btn {
     gap: 8px;
   }
 
-  .element-cards-grid {
+  .element-cards-grid,
+  .element-cards-grid.dojo-grid-5x2 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
@@ -3215,6 +3231,7 @@ body.touch-mode .dojo-close-btn {
   .mode-cards,
   .format-cards-grid,
   .element-cards-grid,
+  .element-cards-grid.dojo-grid-5x2,
   .upgrade-cards-grid,
   .upgrade-cards-grid.four-cards,
   .upgrade-cards-grid.five-cards {
@@ -3429,7 +3446,7 @@ body.touch-mode .dojo-close-btn {
 
 .gacha-slots-grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 .gacha-slot-card,

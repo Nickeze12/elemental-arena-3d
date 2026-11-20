@@ -330,6 +330,18 @@ export class MatchManager {
               this.player.mesh.setEarthTrapped(snap.isEarthTrapped);
             }
           }
+          if (typeof snap.isShogunArmor === 'boolean') {
+            this.player.shogunArmorTimer = snap.isShogunArmor ? Math.max(this.player.shogunArmorTimer, 0.25) : 0;
+            if (this.player.mesh && this.player.mesh.setShogunArmor) {
+              this.player.mesh.setShogunArmor(snap.isShogunArmor);
+            }
+          }
+          if (typeof snap.isAttackSlowed === 'boolean') {
+            this.player.attackSlowTimer = snap.isAttackSlowed ? Math.max(this.player.attackSlowTimer, 0.25) : 0;
+            if (this.player.mesh && this.player.mesh.setAttackSlowed) {
+              this.player.mesh.setAttackSlowed(snap.isAttackSlowed);
+            }
+          }
           if (typeof snap.auraActive === 'boolean' && this._guestAuraState) {
             this._guestAuraState.active = snap.auraActive;
             this._guestAuraState.activeRemaining = snap.auraActiveRemaining ?? 0;
@@ -674,8 +686,8 @@ export class MatchManager {
     const aura = this._guestAuraState || this._createGuestAuraState(this.playerElement);
     const elem = this.player?.element || aura.element || 'earth';
     const def = this.waveManager ? (this.waveManager.constructor?.AURA_DEFS?.[elem] || null) : null;
-    const names = { earth: 'Baluarte Sísmico', fire: 'Tormenta Solar', water: 'Marea Sanadora', air: 'Vendaval Etéreo', nature: 'Bosque Vivo', psychic: 'Mente Trascendente', storm: 'Ojo del Huracán', light: 'Halo Radiante', shadow: 'Segador Nocturno' };
-    const colors = { earth: '#d49a45', fire: '#ff6a1a', water: '#46c8ff', air: '#90f2ff', nature: '#4ade80', psychic: '#e879f9', storm: '#38bdf8', light: '#facc15', shadow: '#f43f5e' };
+    const names = { earth: 'Baluarte Sísmico', fire: 'Tormenta Solar', water: 'Marea Sanadora', air: 'Vendaval Etéreo', nature: 'Bosque Vivo', psychic: 'Mente Trascendente', storm: 'Ojo del Huracán', light: 'Halo Radiante', shadow: 'Segador Nocturno', samurai: 'Espíritu Bushidō' };
+    const colors = { earth: '#d49a45', fire: '#ff6a1a', water: '#46c8ff', air: '#90f2ff', nature: '#4ade80', psychic: '#e879f9', storm: '#38bdf8', light: '#facc15', shadow: '#f43f5e', samurai: '#ef4444' };
     const dur = aura.baseDuration || 5.0;
     const cd = aura.baseCooldown || 14.0;
     return {
@@ -702,14 +714,23 @@ export class MatchManager {
       aura.upgrades.water_eternal || aura.upgrades.air_eternal ||
       aura.upgrades.nature_eternal || aura.upgrades.psychic_eternal ||
       aura.upgrades.storm_eternal || aura.upgrades.light_eternal ||
-      aura.upgrades.shadow_eternal
+      aura.upgrades.shadow_eternal || aura.upgrades.samurai_immortal
     );
     aura.element = rf.element || aura.element || 'earth';
     aura.activeTimer = aura.baseDuration + (hasEternal ? 2.5 : 0);
-    aura.cooldownTimer = aura.baseCooldown;
+    aura.cooldownTimer = Math.max(4.0, aura.baseCooldown - (hasEternal ? 2.5 : 0));
     aura.tickAccum = 0.12;
     aura.lightNovaTimer = 2.0;
     aura.targetIcd.clear();
+
+    if (aura.element === 'samurai' && rf.survivalMods) {
+      rf.survivalMods.auraBushido = true;
+      rf.survivalMods.auraAttackSpeedMult = 1.3;
+      rf.survivalMods.auraDamageTakenMult = 0.65;
+      rf.survivalMods.auraSamuraiHealPerHit = aura.upgrades.samurai_bloodthirst ? 6 : 3;
+      rf.survivalMods.auraMeleeMult = aura.upgrades.samurai_bloodthirst ? 1.25 : 1;
+      rf.survivalMods.auraVoidEdge = !!aura.upgrades.samurai_void_edge;
+    }
 
     if (rf.mesh && rf.mesh.setElementalAura) {
       rf.mesh.setElementalAura(aura.element, true, 1.0);
@@ -724,7 +745,7 @@ export class MatchManager {
       : (this._remoteFighters.get(senderId) || null);
     if (!actor) return;
     const elem = actor.element || 'earth';
-    const colors = { earth: '#d49a45', fire: '#ff6a1a', water: '#46c8ff', air: '#90f2ff', nature: '#4ade80', psychic: '#e879f9', storm: '#38bdf8', light: '#facc15', shadow: '#f43f5e' };
+    const colors = { earth: '#d49a45', fire: '#ff6a1a', water: '#46c8ff', air: '#90f2ff', nature: '#4ade80', psychic: '#e879f9', storm: '#38bdf8', light: '#facc15', shadow: '#f43f5e', samurai: '#ef4444' };
     const col = colors[elem] || '#ffd86b';
     if (actor === this.player) {
       if (this.hud && this.hud.pulseCrosshair) this.hud.pulseCrosshair('aura_r');
@@ -843,6 +864,14 @@ export class MatchManager {
         }
         if (aura.activeTimer <= 0 && rf.mesh && rf.mesh.setElementalAura) {
           rf.mesh.setElementalAura(aura.element, false);
+          if (rf.survivalMods && aura.element === 'samurai') {
+            rf.survivalMods.auraBushido = false;
+            rf.survivalMods.auraAttackSpeedMult = 1;
+            rf.survivalMods.auraDamageTakenMult = 1;
+            rf.survivalMods.auraSamuraiHealPerHit = 0;
+            rf.survivalMods.auraMeleeMult = 1;
+            rf.survivalMods.auraVoidEdge = false;
+          }
         }
       } else if (aura.cooldownTimer > 0) {
         aura.cooldownTimer = Math.max(0, aura.cooldownTimer - dt);
@@ -903,6 +932,15 @@ export class MatchManager {
       } else if (upgradeId === 'light_explosive_mirage') {
         mods.lightMirageCdMult = 0.65;
         mods.auraLightExplosiveMirage = true;
+      } else if (upgradeId === 'samurai_immortal') {
+        mods.samuraiShogunBonus = 2.5;
+      } else if (upgradeId === 'samurai_chain_reaper') {
+        mods.samuraiChainReaper = true;
+        mods.samuraiChainCdMult = 0.65;
+      } else if (upgradeId === 'samurai_void_edge') {
+        mods.auraVoidEdge = true;
+      } else if (upgradeId === 'samurai_bloodthirst') {
+        mods.auraMeleeMult = 1.25;
       }
     }
   }
@@ -1460,6 +1498,8 @@ export class MatchManager {
       isEarthTrapped: !!f.isEarthTrapped,
       isMistForm: !!f.isMistFormActive,
       isShadowVeil: !!f.isShadowVeil,
+      isShogunArmor: !!f.isShogunArmor,
+      isAttackSlowed: !!f.isAttackSlowed,
       auraActive: auraHud ? !!auraHud.active : !!(f.mesh && f.mesh._auraActive),
       auraActiveRemaining: auraHud ? (auraHud.activeRemaining || 0) : 0,
       auraCooldownRemaining: auraHud ? (auraHud.cooldownRemaining || 0) : 0,

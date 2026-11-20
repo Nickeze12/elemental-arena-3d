@@ -139,6 +139,12 @@ export const AURA_DEFS = {
     color: '#f43f5e',
     desc: 'Guadañas orbitales y bruma sombría (radio 5.0 u) que infligen 9 DPS y curan un 25% del daño causado durante 5s.',
   },
+  samurai: {
+    name: 'Espíritu Bushidō',
+    icon: '⚔️',
+    color: '#ef4444',
+    desc: 'Armadura espectral (5s): +30% vel. ataque, -35% daño, ondas cortantes en cada corte y +3 HP por golpe.',
+  },
 };
 
 export const AURA_UPGRADES = {
@@ -195,6 +201,12 @@ export const AURA_UPGRADES = {
     { id: 'shadow_phantom_assassin', icon: '🗡️', title: 'Asesino Fantasma', desc: '-35% cooldown de Paso Sombrío y reinicia su cooldown al eliminar un monstruo durante el aura.' },
     { id: 'shadow_eternal', icon: '⏳', title: 'Noche Eterna', desc: '+2.5s duración y -2.5s cooldown de Segador Nocturno.' },
     { id: 'shadow_soul_harvest', icon: '🩸', title: 'Cosecha de Almas', desc: 'Con aura activa, Lanza Umbría atraviesa enemigos y cura +3 HP por impacto.' },
+  ],
+  samurai: [
+    { id: 'samurai_immortal', icon: '⏳', title: 'Shōgun Inmortal', desc: '+2.5s duración y -2.5s cooldown de Espíritu Bushidō y Armadura del Shōgun.' },
+    { id: 'samurai_chain_reaper', icon: '⛓️', title: 'Cadena Segadora', desc: 'Cadena Kunai atrae hasta 3 monstruos cercanos y reduce su cooldown un 35%.' },
+    { id: 'samurai_void_edge', icon: '🌙', title: 'Filo del Vacío', desc: 'Duplica el ancho y daño de las ondas cortantes de katana.' },
+    { id: 'samurai_bloodthirst', icon: '🩸', title: 'Sed de Acero', desc: 'Duplica la curación por golpe (+6 HP) y aumenta +25% el daño cuerpo a cuerpo.' },
   ],
 };
 
@@ -817,7 +829,8 @@ export class WaveManager {
       u.psychic_eternal ||
       u.storm_eternal ||
       u.light_eternal ||
-      u.shadow_eternal
+      u.shadow_eternal ||
+      u.samurai_immortal
     );
   }
 
@@ -864,6 +877,14 @@ export class WaveManager {
     mods.shadowStepCdMult = this.aura.element === 'shadow' && this.aura.upgrades.shadow_phantom_assassin ? 0.65 : 1;
     mods.mistCooldownMult = this.aura.element === 'storm' && this.aura.upgrades.storm_mist_step ? 0.65 : 1;
     mods.mistExitDischarge = this.aura.element === 'storm' && !!this.aura.upgrades.storm_mist_step;
+    mods.samuraiShogunBonus = this.aura.element === 'samurai' && this.aura.upgrades.samurai_immortal ? 2.5 : 0;
+    mods.samuraiChainReaper = this.aura.element === 'samurai' && !!this.aura.upgrades.samurai_chain_reaper;
+    mods.samuraiChainCdMult = this.aura.element === 'samurai' && this.aura.upgrades.samurai_chain_reaper ? 0.65 : 1;
+    mods.auraBushido = false;
+    mods.auraAttackSpeedMult = 1;
+    mods.auraSamuraiHealPerHit = 0;
+    mods.auraMeleeMult = 1;
+    mods.auraVoidEdge = false;
     if (!active) mods.auraShieldHp = 0;
 
     if (active) {
@@ -905,6 +926,13 @@ export class WaveManager {
         mods.auraLightInfiniteRefract = !!up.light_infinite_refract;
       } else if (elem === 'shadow') {
         mods.auraShadowHarvest = !!up.shadow_soul_harvest;
+      } else if (elem === 'samurai') {
+        mods.auraBushido = true;
+        mods.auraAttackSpeedMult = 1.3;
+        mods.auraDamageTakenMult = 0.65;
+        mods.auraSamuraiHealPerHit = up.samurai_bloodthirst ? 6 : 3;
+        mods.auraMeleeMult = up.samurai_bloodthirst ? 1.25 : 1;
+        mods.auraVoidEdge = !!up.samurai_void_edge;
       }
     }
 
