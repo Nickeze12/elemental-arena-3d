@@ -23,6 +23,9 @@ const _right = new THREE.Vector3();
 const _rayDir = new THREE.Vector3();
 const _aimDir = new THREE.Vector3();
 const _toPivot = new THREE.Vector3();
+const _assistTorso = new THREE.Vector3();
+const _assistVec = new THREE.Vector3();
+const _assistBest = new THREE.Vector3();
 
 function isDescendantOf(obj, root) {
   let cur = obj;
@@ -52,6 +55,8 @@ export class ThirdPersonCamera {
     this.camera = camera;
     this.target = target;
     this.arena = arena;
+    this.isTouchMode = null;
+    this.getHostileTargets = null;
 
     this.yaw = 0; // Dirección de mira: (sin yaw, 0, cos yaw)
     this.pitch = 18 * DEG;
@@ -138,9 +143,23 @@ export class ThirdPersonCamera {
       camToPlayerDist = Math.max(0, _toPivot.dot(_aimDir));
     }
 
+    const mapTargets = this.arena.getRaycastTargets ? this.arena.getRaycastTargets() : this.arena.aimColliders;
+    if (this.isTouchMode && this.isTouchMode() && this.getHostileTargets) {
+      const assisted = this._findTouchAimAssistPoint(
+        origin,
+        _aimDir,
+        camToPlayerDist,
+        Math.min(maxDistance, 30),
+        playerPos,
+        playerRoot,
+        mapTargets,
+        out
+      );
+      if (assisted) return assisted;
+    }
+
     const targets = this._aimTargets;
     targets.length = 0;
-    const mapTargets = this.arena.getRaycastTargets ? this.arena.getRaycastTargets() : this.arena.aimColliders;
     for (const o of mapTargets) targets.push(o);
     if (this.extraAimTargets) {
       for (const o of this.extraAimTargets()) targets.push(o);
@@ -162,6 +181,68 @@ export class ThirdPersonCamera {
     }
 
     return out.copy(origin).addScaledVector(_aimDir, 40);
+  }
+
+  /**
+   * Asistencia suave de apuntado (solo Modo Táctil):
+   * Si hay un rival o monstruo vivo dentro de un cono estrecho (<= 2.0 u lateral,
+   * distancia <= 26 u desde el jugador) y con línea de visión despejada, ajusta
+   * suavemente el punto de mira al centro del torso del objetivo más cercano al rayo.
+   */
+  _findTouchAimAssistPoint(origin, aimDir, camToPlayerDist, maxRayDist, playerPos, playerRoot, mapTargets, out) {
+    const hostiles = this.getHostileTargets();
+    if (!hostiles || hostiles.length === 0) return null;
+
+    const maxRangeFromPlayer = 26;
+    const maxLateralSq = 2.0 * 2.0;
+    let bestPerpSq = maxLateralSq;
+    let bestDist = Infinity;
+    let found = false;
+
+    for (let i = 0; i < hostiles.length; i++) {
+      const f = hostiles[i];
+      if (!f || !f.isAlive || !f.position) continue;
+      const torsoY = f.position.y + (f.isMonster && f.monsterType === 'colossus' ? 1.85 : 1.05);
+      _assistTorso.set(f.position.x, torsoY, f.position.z);
+
+      if (playerPos && _assistTorso.distanceTo(playerPos) > maxRangeFromPlayer) continue;
+      _assistVec.subVectors(_assistTorso, origin);
+      const proj = _assistVec.dot(aimDir);
+      if (proj <= camToPlayerDist + 0.5 || proj > maxRayDist) continue;
+
+      const perpSq = Math.max(0, _assistVec.lengthSq() - proj * proj);
+      if (perpSq > bestPerpSq) continue;
+
+      const distToTorso = _assistVec.length();
+      if (distToTorso < 0.5) continue;
+      _assistVec.divideScalar(distToTorso);
+
+      this._aimRaycaster.set(origin, _assistVec);
+      this._aimRaycaster.near = 0.2;
+      this._aimRaycaster.far = distToTorso - 0.65;
+      const blockers = this._aimRaycaster.intersectObjects(mapTargets, true);
+      let blocked = false;
+      for (let j = 0; j < blockers.length; j++) {
+        const b = blockers[j];
+        if (!b.object || !isHierarchyVisible(b.object)) continue;
+        if (b.object.material && b.object.material.side === THREE.BackSide) continue;
+        if (playerRoot && isDescendantOf(b.object, playerRoot)) continue;
+        if (f.mesh && f.mesh.root && isDescendantOf(b.object, f.mesh.root)) continue;
+        if (b.distance <= camToPlayerDist + 0.25) continue;
+        blocked = true;
+        break;
+      }
+      if (blocked) continue;
+
+      if (perpSq < bestPerpSq - 0.05 || (Math.abs(perpSq - bestPerpSq) <= 0.05 && proj < bestDist)) {
+        bestPerpSq = perpSq;
+        bestDist = proj;
+        _assistBest.copy(_assistTorso);
+        found = true;
+      }
+    }
+
+    return found ? out.copy(_assistBest) : null;
   }
 
   /**

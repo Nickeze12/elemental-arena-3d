@@ -422,6 +422,18 @@ export class CombatManager {
     return out;
   }
 
+  /** Lista de luchadores/monstruos hostiles vivos respecto al jugador local */
+  getHostileFighters() {
+    const out = [];
+    for (const f of this.fighters) {
+      if (!f || f === this.player || !f.isAlive) continue;
+      if (f.mesh && f.mesh.root && f.mesh.root.visible === false) continue;
+      if (this.player && !this.isHostile(this.player.id, f)) continue;
+      out.push(f);
+    }
+    return out;
+  }
+
   /**
    * Objetivos extra para el raycast de puntería de cámara (muros sólidos + rivales y monstruos vivos).
    * @returns {THREE.Object3D[]}
@@ -444,6 +456,18 @@ export class CombatManager {
     return out;
   }
 
+  /** Lista de luchadores/monstruos hostiles vivos respecto al jugador local */
+  getHostileFighters() {
+    const out = [];
+    for (const f of this.fighters) {
+      if (!f || f === this.player || !f.isAlive) continue;
+      if (f.mesh && f.mesh.root && f.mesh.root.visible === false) continue;
+      if (this.player && !this.isHostile(this.player.id, f)) continue;
+      out.push(f);
+    }
+    return out;
+  }
+
   /**
    * Hitboxes activas (proyectiles en vuelo + peligros).
    * Formato: { type, tag, owner, ownerId, position, radius, damage, knockback, direction, source }
@@ -457,6 +481,18 @@ export class CombatManager {
         const hb = h.getHitbox();
         if (hb) out.push(hb);
       }
+    }
+    return out;
+  }
+
+  /** Lista de luchadores/monstruos hostiles vivos respecto al jugador local */
+  getHostileFighters() {
+    const out = [];
+    for (const f of this.fighters) {
+      if (!f || f === this.player || !f.isAlive) continue;
+      if (f.mesh && f.mesh.root && f.mesh.root.visible === false) continue;
+      if (this.player && !this.isHostile(this.player.id, f)) continue;
+      out.push(f);
     }
     return out;
   }

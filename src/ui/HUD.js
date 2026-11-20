@@ -367,6 +367,11 @@ export class HUD {
 
     // --- Controles multi-touch (Joystick virtual + arrastre cámara + arco de habilidades) ---
     this.touchControls = new TouchControls(null);
+    this.touchControls.onAimingStateChange = (aiming) => {
+      if (this.crosshair) {
+        this.crosshair.classList.toggle('aiming', !!aiming);
+      }
+    };
 
     // --- Cartel de cuenta regresiva ---
     this.countdownEl = el('div', 'countdown-banner hidden');
@@ -2001,6 +2006,7 @@ export class HUD {
     const pCfg = getElementConfig(playerElement);
     this._currentElementCfg = pCfg;
     if (this.touchControls) {
+      this.touchControls.setElement(playerElement);
       this.touchControls.syncState({
         abilities: this._lastAbilities,
         dashReadiness: this._lastDashReadiness,

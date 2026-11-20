@@ -82,6 +82,8 @@ player.setCombatManager(combat);
 player.onDashStart = () => tpCamera.triggerFovBoost(5);
 player.onSolarBlind = (duration = 2.0) => hud.triggerSolarBlind(duration);
 tpCamera.extraAimTargets = () => combat.getAimTargets();
+tpCamera.isTouchMode = () => input.isTouchMode;
+tpCamera.getHostileTargets = () => combat.getHostileFighters();
 combat.onAbilityUsed = (abilityId) => hud.pulseCrosshair(abilityId);
 
 // --- Hitstop (congelamiento breve de impacto para ataques pesados) ---

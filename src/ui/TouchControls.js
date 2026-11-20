@@ -30,6 +30,8 @@ export class TouchControls {
     this._camId = null;
     this._camLastX = 0;
     this._camLastY = 0;
+    this._currentElement = 'earth';
+    this.onAimingStateChange = null;
 
     this.root = document.createElement('div');
     this.root.className = 'touch-controls-layer hidden';
@@ -45,6 +47,8 @@ export class TouchControls {
       </div>
 
       <div class="touch-look-zone" data-touch-look-zone></div>
+
+      <div id="touch-cancel-cast" class="touch-cancel-cast hidden" data-touch-cancel aria-label="Cancelar habilidad">✕</div>
 
       <div class="touch-left-actions" data-touch-left-actions>
         <button type="button" class="touch-btn touch-btn-jump ready" data-touch-btn="jump" aria-label="Saltar">
@@ -104,17 +108,18 @@ export class TouchControls {
     this._joyBase = this.root.querySelector('[data-touch-joy-base]');
     this._joyKnob = this.root.querySelector('[data-touch-joy-knob]');
     this._lookZone = this.root.querySelector('[data-touch-look-zone]');
+    this._cancelCastEl = this.root.querySelector('[data-touch-cancel]');
     this._actionArc = this.root.querySelector('[data-touch-action-arc]');
 
     this._buttons = {};
     const specs = [
-      { key: 'primary', type: 'mouse', code: 0 },
-      { key: 'secondary', type: 'mouse', code: 2 },
-      { key: 'skill1', type: 'key', code: 'KeyQ' },
-      { key: 'skill2', type: 'key', code: 'KeyE' },
-      { key: 'jump', type: 'key', code: 'Space' },
-      { key: 'dash', type: 'key', code: 'ShiftLeft' },
-      { key: 'aura', type: 'key', code: 'KeyR' },
+      { key: 'primary', type: 'mouse', code: 0, aimOnDrag: true, cancellable: false },
+      { key: 'secondary', type: 'mouse', code: 2, aimOnDrag: true, cancellable: true },
+      { key: 'skill1', type: 'key', code: 'KeyQ', aimOnDrag: true, cancellable: true },
+      { key: 'skill2', type: 'key', code: 'KeyE', aimOnDrag: true, cancellable: true },
+      { key: 'jump', type: 'key', code: 'Space', aimOnDrag: false, cancellable: false },
+      { key: 'dash', type: 'key', code: 'ShiftLeft', aimOnDrag: false, cancellable: false },
+      { key: 'aura', type: 'key', code: 'KeyR', aimOnDrag: false, cancellable: false },
     ];
     for (const sp of specs) {
       const el = this.root.querySelector(`[data-touch-btn="${sp.key}"]`);
@@ -126,6 +131,8 @@ export class TouchControls {
         sub: el.querySelector('.touch-btn-sub'),
         cd: el.querySelector('.touch-btn-cd'),
         touchIds: new Set(),
+        activeTouch: null,
+        _releaseTimer: null,
       };
       this._buttons[sp.key] = entry;
       this._bindButtonEvents(entry);
@@ -137,6 +144,11 @@ export class TouchControls {
     if (parentEl) {
       parentEl.appendChild(this.root);
     }
+  }
+
+  /** @param {string} elementId */
+  setElement(elementId) {
+    if (elementId) this._currentElement = elementId;
   }
 
   /** @param {import('../core/InputManager.js').InputManager} input */
@@ -166,12 +178,23 @@ export class TouchControls {
     }
 
     for (const b of Object.values(this._buttons)) {
+      if (b._releaseTimer) {
+        clearTimeout(b._releaseTimer);
+        b._releaseTimer = null;
+      }
+      if (b.activeTouch) {
+        const wasHeldMist = b.key === 'secondary' && this._currentElement === 'storm';
+        b.activeTouch = null;
+        b.el.classList.remove('pressed', 'btn-aiming');
+        if (wasHeldMist) this._emitVirtualAction(b, false);
+      }
       if (b.touchIds.size > 0) {
         b.touchIds.clear();
-        b.el.classList.remove('pressed');
+        b.el.classList.remove('pressed', 'btn-aiming');
         this._emitVirtualAction(b, false);
       }
     }
+    this._syncAimingVisuals();
   }
 
   /** Actualiza colores, cooldowns y estado del aura en el arco táctil */
@@ -394,34 +417,122 @@ export class TouchControls {
     this._lookZone.addEventListener('touchcancel', releaseCam, { passive: false });
   }
 
-  _bindButtonEvents(btn) {
-    const releaseBtn = (e) => {
-      let changed = false;
-      for (const t of e.changedTouches) {
-        if (btn.touchIds.delete(t.identifier)) {
-          changed = true;
+  _isPointInCancelZone(clientX, clientY) {
+    if (!this._cancelCastEl || this._cancelCastEl.classList.contains('hidden')) return false;
+    const rect = this._cancelCastEl.getBoundingClientRect();
+    const pad = 10;
+    return (
+      clientX >= rect.left - pad &&
+      clientX <= rect.right + pad &&
+      clientY >= rect.top - pad &&
+      clientY <= rect.bottom + pad
+    );
+  }
+
+  _syncAimingVisuals(pointerX = null, pointerY = null) {
+    let anyAiming = false;
+    let showCancel = false;
+    for (const b of Object.values(this._buttons)) {
+      if (b.activeTouch) {
+        anyAiming = true;
+        if (b.cancellable && !b.activeTouch.isHeldMist) {
+          showCancel = true;
         }
       }
-      if (changed && btn.touchIds.size === 0) {
-        btn.el.classList.remove('pressed');
-        this._emitVirtualAction(btn, false);
-      }
-    };
+    }
+    if (this._cancelCastEl) {
+      this._cancelCastEl.classList.toggle('hidden', !showCancel);
+      const hovering =
+        showCancel && pointerX !== null && pointerY !== null && this._isPointInCancelZone(pointerX, pointerY);
+      this._cancelCastEl.classList.toggle('hover', hovering);
+    }
+    if (this.onAimingStateChange) {
+      this.onAimingStateChange(anyAiming);
+    }
+  }
 
+  _pulseVirtualTap(btn) {
+    if (btn._releaseTimer) {
+      clearTimeout(btn._releaseTimer);
+      btn._releaseTimer = null;
+    }
+    this._emitVirtualAction(btn, true);
+    btn._releaseTimer = setTimeout(() => {
+      btn._releaseTimer = null;
+      this._emitVirtualAction(btn, false);
+    }, 28);
+  }
+
+  _bindButtonEvents(btn) {
+    if (!btn.aimOnDrag) {
+      const releaseInstant = (e) => {
+        let changed = false;
+        for (const t of e.changedTouches) {
+          if (btn.touchIds.delete(t.identifier)) {
+            changed = true;
+          }
+        }
+        if (changed && btn.touchIds.size === 0) {
+          btn.el.classList.remove('pressed');
+          this._emitVirtualAction(btn, false);
+        }
+      };
+
+      btn.el.addEventListener(
+        'touchstart',
+        (e) => {
+          if (!this._visible) return;
+          e.preventDefault();
+          e.stopPropagation();
+          const wasEmpty = btn.touchIds.size === 0;
+          for (const t of e.changedTouches) {
+            btn.touchIds.add(t.identifier);
+          }
+          if (wasEmpty && btn.touchIds.size > 0) {
+            btn.el.classList.add('pressed');
+            this._emitVirtualAction(btn, true);
+          }
+        },
+        { passive: false }
+      );
+
+      btn.el.addEventListener(
+        'touchmove',
+        (e) => {
+          e.stopPropagation();
+        },
+        { passive: true }
+      );
+
+      btn.el.addEventListener('touchend', releaseInstant, { passive: false });
+      btn.el.addEventListener('touchcancel', releaseInstant, { passive: false });
+      return;
+    }
+
+    // Botones de combate con apuntado al arrastrar (ATK, DEF/ESP, Q, E)
     btn.el.addEventListener(
       'touchstart',
       (e) => {
         if (!this._visible) return;
         e.preventDefault();
         e.stopPropagation();
-        const wasEmpty = btn.touchIds.size === 0;
-        for (const t of e.changedTouches) {
-          btn.touchIds.add(t.identifier);
-        }
-        if (wasEmpty && btn.touchIds.size > 0) {
-          btn.el.classList.add('pressed');
+        if (btn.activeTouch) return;
+        const t = e.changedTouches[0];
+        if (!t) return;
+        const isHeldMist = btn.key === 'secondary' && this._currentElement === 'storm';
+        btn.activeTouch = {
+          id: t.identifier,
+          startX: t.clientX,
+          startY: t.clientY,
+          lastX: t.clientX,
+          lastY: t.clientY,
+          isHeldMist,
+        };
+        btn.el.classList.add('pressed', 'btn-aiming');
+        if (isHeldMist) {
           this._emitVirtualAction(btn, true);
         }
+        this._syncAimingVisuals(t.clientX, t.clientY);
       },
       { passive: false }
     );
@@ -429,12 +540,50 @@ export class TouchControls {
     btn.el.addEventListener(
       'touchmove',
       (e) => {
-        e.stopPropagation();
+        if (!btn.activeTouch) return;
+        for (const t of e.changedTouches) {
+          if (t.identifier === btn.activeTouch.id) {
+            e.preventDefault();
+            e.stopPropagation();
+            const dx = t.clientX - btn.activeTouch.lastX;
+            const dy = t.clientY - btn.activeTouch.lastY;
+            btn.activeTouch.lastX = t.clientX;
+            btn.activeTouch.lastY = t.clientY;
+            if (this.input) {
+              this.input.addTouchCameraDelta(dx * CAMERA_DRAG_SCALE, dy * CAMERA_DRAG_SCALE);
+            }
+            this._syncAimingVisuals(t.clientX, t.clientY);
+            break;
+          }
+        }
       },
-      { passive: true }
+      { passive: false }
     );
 
-    btn.el.addEventListener('touchend', releaseBtn, { passive: false });
-    btn.el.addEventListener('touchcancel', releaseBtn, { passive: false });
+    const endAimTouch = (e, cancelled) => {
+      if (!btn.activeTouch) return;
+      for (const t of e.changedTouches) {
+        if (t.identifier === btn.activeTouch.id) {
+          e.preventDefault();
+          e.stopPropagation();
+          const wasHeldMist = btn.activeTouch.isHeldMist;
+          const droppedInCancel =
+            !cancelled && btn.cancellable && !wasHeldMist && this._isPointInCancelZone(t.clientX, t.clientY);
+          btn.activeTouch = null;
+          btn.el.classList.remove('pressed', 'btn-aiming');
+          this._syncAimingVisuals();
+
+          if (wasHeldMist) {
+            this._emitVirtualAction(btn, false);
+          } else if (!cancelled && !droppedInCancel) {
+            this._pulseVirtualTap(btn);
+          }
+          break;
+        }
+      }
+    };
+
+    btn.el.addEventListener('touchend', (e) => endAimTouch(e, false), { passive: false });
+    btn.el.addEventListener('touchcancel', (e) => endAimTouch(e, true), { passive: false });
   }
 }

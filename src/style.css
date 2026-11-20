@@ -3603,3 +3603,53 @@ body.touch-mode .dojo-close-btn {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ==========================================================
+   Modo Táctil: Apuntado al arrastrar, Cancelar (✕) y Mira
+   ========================================================== */
+.touch-btn.btn-aiming {
+  transform: scale(1.09);
+  border-color: var(--touch-accent, #fde047);
+  box-shadow:
+    0 0 0 3px rgba(250, 204, 21, 0.35),
+    0 0 22px var(--touch-color, rgba(107, 230, 255, 0.72));
+}
+
+.crosshair.aiming {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.28);
+}
+.crosshair.aiming span {
+  background: #fde047;
+  box-shadow: 0 0 0 1px rgba(10, 14, 24, 0.85), 0 0 6px rgba(250, 204, 21, 0.85);
+}
+
+.touch-cancel-cast {
+  position: fixed;
+  top: 26%;
+  right: 26px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(127, 29, 29, 0.78);
+  border: 2px solid rgba(252, 165, 165, 0.75);
+  color: #fef2f2;
+  font-size: 1.35rem;
+  font-weight: 900;
+  pointer-events: auto;
+  z-index: 32;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+  transition: transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+.touch-cancel-cast.hidden {
+  display: none;
+}
+.touch-cancel-cast.hover {
+  transform: scale(1.18);
+  background: rgba(220, 38, 38, 0.94);
+  border-color: #ffffff;
+  box-shadow: 0 0 22px rgba(248, 113, 113, 0.85);
+}
