@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { ELEMENTS, ELEMENT_KEYS, getElementConfig } from '../combat/ElementFactory.js';
 import { TouchControls } from './TouchControls.js';
+import {
+  economyManager,
+  CLASSIC_ELEMENTS,
+  LEGENDARY_ELEMENTS,
+} from '../core/EconomyManager.js';
 
 /**
  * HUD
@@ -68,7 +73,11 @@ export class HUD {
     this._sanctuaryBotCount = 3;
     this._survivalRecord = { maxWave: 0, highScore: 0 };
 
-    this.selectedPlayerElement = 'earth';
+    this.selectedPlayerElement = 'classic_roulette';
+    this.economy = economyManager;
+    this._sound = null;
+    this._rouletteSpinning = false;
+    this.goldToastLayer = el('div', 'gold-toast-layer');
     this.selectedRivalChoice = 'random'; // 'random' | 'earth' | 'fire' | 'water' | 'air'
     this.selectedMode = 'classic'; // 'classic' | 'sanctuary'
     this.selectedFormat = 'ffa'; // 'ffa' | 'teams' | 'dojo' | 'survival'
@@ -407,6 +416,7 @@ export class HUD {
     this.gameOverOverlay.innerHTML = `
       <div class="gameover-panel">
         <h2 class="gameover-title">¡VICTORIA!</h2>
+        <div class="gameover-gold-badge hidden" data-gameover-gold></div>
         <p class="gameover-subtitle"></p>
         <div class="gameover-buttons">
           <button type="button" class="play-again-btn hidden" data-next-stage>Siguiente Etapa: Batalla Campal</button>
@@ -418,6 +428,7 @@ export class HUD {
         </div>
       </div>`;
     this._goTitle = this.gameOverOverlay.querySelector('.gameover-title');
+    this._goGoldBadge = this.gameOverOverlay.querySelector('[data-gameover-gold]');
     this._goSubtitle = this.gameOverOverlay.querySelector('.gameover-subtitle');
     this._nextStageBtn = this.gameOverOverlay.querySelector('[data-next-stage]');
     this._playAgainBtn = this.gameOverOverlay.querySelector('[data-replay-stage]');
@@ -552,6 +563,7 @@ export class HUD {
       this.worldBarsLayer,
       this.directionalLayer,
       this.killFeedLayer,
+      this.goldToastLayer,
       this.spectatorBanner,
       this.confuseBanner,
       this.damageLayer,
@@ -576,12 +588,28 @@ export class HUD {
   }
 
   _buildElementSelector() {
-    const cardsHtml = ELEMENT_KEYS.map((key) => {
-      const cfg = ELEMENTS[key];
-      const abList = cfg.abilities
-        .map((a) => `<li><kbd>${a.key}</kbd><span>${a.name}</span></li>`)
-        .join('');
-      return `
+    const classicRouletteCardHtml = `
+      <div class="element-card classic-roulette-card ${this.selectedPlayerElement === 'classic_roulette' ? 'selected' : ''}"
+           data-element-card="classic_roulette"
+           style="--el-color: #facc15; --el-accent: #f59e0b">
+        <div class="card-header">
+          <span class="card-icon">🎲</span>
+          <h3 class="card-title">RULETA CLÁSICA</h3>
+        </div>
+        <div class="roulette-mini-icons">
+          <span>⛰️</span><span>🔥</span><span>🌊</span><span>🌪️</span>
+        </div>
+        <div class="roulette-odds-tag">25% cada clásico</div>
+      </div>`;
+
+    const cardsHtml =
+      classicRouletteCardHtml +
+      ELEMENT_KEYS.map((key) => {
+        const cfg = ELEMENTS[key];
+        const abList = cfg.abilities
+          .map((a) => `<li><kbd>${a.key}</kbd><span>${a.name}</span></li>`)
+          .join('');
+        return `
         <div class="element-card ${key === this.selectedPlayerElement ? 'selected' : ''}"
              data-element-card="${key}"
              style="--el-color: ${cfg.color}; --el-accent: ${cfg.accent}">
@@ -590,8 +618,9 @@ export class HUD {
             <h3 class="card-title">${cfg.name}</h3>
           </div>
           <ul class="card-abilities">${abList}</ul>
+          <div class="card-lock-badge hidden" data-lock-badge>🔒 Ruleta Legendaria</div>
         </div>`;
-    }).join('');
+      }).join('');
 
     const rivalOptions = [
       { id: 'random', label: '🎲 Aleatorios' },
@@ -687,6 +716,12 @@ export class HUD {
               <span class="step-pill" data-step-pill="2">2. MAESTRO ELEMENTAL</span>
             </div>
             <div class="header-right-actions">
+              <div class="gold-balance-pill" data-gold-balance>
+                🪙 <span data-gold-amount>0</span>
+              </div>
+              <button type="button" class="legendary-gacha-btn" data-open-gacha>
+                🎰 RULETA LEGENDARIA <span class="gacha-cost-tag" data-gacha-btn-cost>150 🪙</span>
+              </button>
               <button type="button" class="touch-toggle-btn" data-touch-toggle-btn>
                 📱 Táctil: OFF
               </button>
@@ -851,10 +886,7 @@ export class HUD {
               <div class="lobby-col">
                 <span class="rival-label">TU ELEMENTO EN EL LOBBY:</span>
                 <div class="lobby-elem-grid" data-lobby-elements>
-                  <button type="button" class="lobby-elem-btn active" data-lobby-element="earth">⛰️ Tierra</button>
-                  <button type="button" class="lobby-elem-btn" data-lobby-element="fire">🔥 Fuego</button>
-                  <button type="button" class="lobby-elem-btn" data-lobby-element="water">🌊 Agua</button>
-                  <button type="button" class="lobby-elem-btn" data-lobby-element="air">🌪️ Aire</button>
+                  <button type="button" class="lobby-elem-btn lobby-elem-classic active" data-lobby-element="classic_roulette">🎲 Ruleta Clásica</button>
                   <button type="button" class="lobby-elem-btn lobby-elem-nature" data-lobby-element="nature">🌿 Naturaleza</button>
                   <button type="button" class="lobby-elem-btn lobby-elem-psychic" data-lobby-element="psychic">🔮 Psíquico</button>
                   <button type="button" class="lobby-elem-btn lobby-elem-storm" data-lobby-element="storm">⛈️ Tormenta</button>
@@ -889,6 +921,57 @@ export class HUD {
             </div>
             <div class="online-status-banner hidden" data-lobby-status></div>
           </div>
+        </div>
+      </div>
+
+      <!-- Modal Ruleta Legendaria (Gacha sin repetidos) -->
+      <div class="roulette-modal-overlay hidden" data-gacha-modal>
+        <div class="roulette-modal-card">
+          <div class="roulette-modal-header">
+            <h3>🎰 RULETA LEGENDARIA</h3>
+            <div class="roulette-modal-right">
+              <div class="gold-balance-pill">🪙 <span data-gacha-gold-amount>0</span></div>
+              <button type="button" class="roulette-close-btn" data-gacha-close>✕</button>
+            </div>
+          </div>
+          <div class="gacha-slots-grid" data-gacha-slots>
+            ${LEGENDARY_ELEMENTS.map((key) => {
+              const cfg = ELEMENTS[key];
+              return `
+                <div class="gacha-slot-card" data-gacha-slot="${key}" style="--el-color: ${cfg.color}; --el-accent: ${cfg.accent}">
+                  <span class="gacha-slot-icon">${cfg.icon}</span>
+                  <strong class="gacha-slot-name">${cfg.name}</strong>
+                  <span class="gacha-slot-state" data-gacha-slot-state>🔒 Bloqueado</span>
+                </div>`;
+            }).join('')}
+          </div>
+          <div class="gacha-result-banner hidden" data-gacha-result></div>
+          <div class="roulette-modal-actions">
+            <button type="button" class="enter-arena-btn gacha-spin-btn" data-gacha-spin>
+              GIRAR RULETA (150 🪙)
+            </button>
+            <button type="button" class="secondary-btn hidden" data-gacha-equip>
+              Equipar Maestro
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Overlay Ruleta Clásica Pre-Partida -->
+      <div class="roulette-modal-overlay hidden" data-classic-roulette-modal>
+        <div class="roulette-modal-card classic-roulette-modal">
+          <h3 class="classic-roulette-title">🎲 RULETA CLÁSICA</h3>
+          <div class="classic-slots-grid" data-classic-slots>
+            ${CLASSIC_ELEMENTS.map((key) => {
+              const cfg = ELEMENTS[key];
+              return `
+                <div class="classic-slot-card" data-classic-slot="${key}" style="--el-color: ${cfg.color}; --el-accent: ${cfg.accent}">
+                  <span class="classic-slot-icon">${cfg.icon}</span>
+                  <strong class="classic-slot-name">${cfg.name}</strong>
+                </div>`;
+            }).join('')}
+          </div>
+          <div class="classic-roulette-status" data-classic-roulette-status>Sorteando elemento...</div>
         </div>
       </div>`;
 
@@ -940,8 +1023,59 @@ export class HUD {
     this._lobbyStartBtn = this.selectOverlay.querySelector('[data-lobby-start]');
     this._lobbyStatusEl = this.selectOverlay.querySelector('[data-lobby-status]');
     this._lobbyReadyState = false;
-    this._lobbyElement = 'earth';
+    this._lobbyElement = 'classic_roulette';
     this._isOnline = false;
+
+    // Economía & Ruletas
+    this._goldAmountEl = this.selectOverlay.querySelector('[data-gold-amount]');
+    this._openGachaBtn = this.selectOverlay.querySelector('[data-open-gacha]');
+    this._gachaBtnCostEl = this.selectOverlay.querySelector('[data-gacha-btn-cost]');
+    this._gachaModalEl = this.selectOverlay.querySelector('[data-gacha-modal]');
+    this._gachaGoldAmountEl = this.selectOverlay.querySelector('[data-gacha-gold-amount]');
+    this._gachaCloseBtn = this.selectOverlay.querySelector('[data-gacha-close]');
+    this._gachaSlotEls = Array.from(this.selectOverlay.querySelectorAll('[data-gacha-slot]'));
+    this._gachaResultEl = this.selectOverlay.querySelector('[data-gacha-result]');
+    this._gachaSpinBtn = this.selectOverlay.querySelector('[data-gacha-spin]');
+    this._gachaEquipBtn = this.selectOverlay.querySelector('[data-gacha-equip]');
+    this._classicRouletteModalEl = this.selectOverlay.querySelector('[data-classic-roulette-modal]');
+    this._classicSlotEls = Array.from(this.selectOverlay.querySelectorAll('[data-classic-slot]'));
+    this._classicRouletteStatusEl = this.selectOverlay.querySelector('[data-classic-roulette-status]');
+    this._lastGachaUnlocked = null;
+
+    if (this._openGachaBtn) {
+      this._openGachaBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.openGachaModal();
+      });
+    }
+    if (this._gachaCloseBtn) {
+      this._gachaCloseBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeGachaModal();
+      });
+    }
+    if (this._gachaSpinBtn) {
+      this._gachaSpinBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this._spinGachaRoulette();
+      });
+    }
+    if (this._gachaEquipBtn) {
+      this._gachaEquipBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const elem = this._lastGachaUnlocked;
+        this.closeGachaModal();
+        if (elem && this.economy.isUnlocked(elem)) {
+          this.selectedPlayerElement = elem;
+          this._lobbyElement = elem;
+          this._syncStep2ElementCards();
+          this._syncEconomyUI();
+          if (this._isOnline && this.onOnlineUpdateProfile) {
+            this.onOnlineUpdateProfile({ element: elem });
+          }
+        }
+      });
+    }
 
     if (this._touchToggleBtn) {
       this._touchToggleBtn.addEventListener('click', (e) => {
@@ -968,9 +1102,12 @@ export class HUD {
       this._onlineCreateBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (this.onOnlineCreateRoom) {
+          const elem = this._lobbyElement === 'classic_roulette' || this.economy.isUnlocked(this._lobbyElement)
+            ? this._lobbyElement
+            : 'classic_roulette';
           this.onOnlineCreateRoom({
             name: this._onlineNameInput?.value || 'Maestro',
-            element: this._lobbyElement || this.selectedPlayerElement || 'earth',
+            element: elem || 'classic_roulette',
           });
         }
       });
@@ -979,10 +1116,13 @@ export class HUD {
       this._onlineJoinBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         if (this.onOnlineJoinRoom) {
+          const elem = this._lobbyElement === 'classic_roulette' || this.economy.isUnlocked(this._lobbyElement)
+            ? this._lobbyElement
+            : 'classic_roulette';
           this.onOnlineJoinRoom({
             code: this._onlineCodeInput?.value || '',
             name: this._onlineNameInput?.value || 'Maestro',
-            element: this._lobbyElement || this.selectedPlayerElement || 'fire',
+            element: elem || 'classic_roulette',
           });
         }
       });
@@ -1012,7 +1152,12 @@ export class HUD {
     for (const eb of this._lobbyElemBtns) {
       eb.addEventListener('click', (e) => {
         e.stopPropagation();
-        this._lobbyElement = eb.dataset.lobbyElement;
+        const elemId = eb.dataset.lobbyElement;
+        if (elemId !== 'classic_roulette' && !this.economy.isUnlocked(elemId)) {
+          this.openGachaModal();
+          return;
+        }
+        this._lobbyElement = elemId;
         for (const b of this._lobbyElemBtns) b.classList.toggle('active', b === eb);
         if (this.onOnlineUpdateProfile) this.onOnlineUpdateProfile({ element: this._lobbyElement });
       });
@@ -1020,7 +1165,21 @@ export class HUD {
     if (this._lobbyReadyBtn) {
       this._lobbyReadyBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        this._lobbyReadyState = !this._lobbyReadyState;
+        if (this._rouletteSpinning) return;
+        const nextReady = !this._lobbyReadyState;
+        if (nextReady && (this._lobbyElement === 'classic_roulette' || !this.economy.isUnlocked(this._lobbyElement))) {
+          this._spinClassicRoulette((resolvedElement) => {
+            this._lobbyElement = resolvedElement;
+            this._lobbyReadyState = true;
+            this._lobbyReadyBtn.classList.add('is-ready');
+            this._lobbyReadyBtn.textContent = '✅ Listo';
+            if (this.onOnlineUpdateProfile) {
+              this.onOnlineUpdateProfile({ element: resolvedElement, ready: true });
+            }
+          });
+          return;
+        }
+        this._lobbyReadyState = nextReady;
         this._lobbyReadyBtn.classList.toggle('is-ready', this._lobbyReadyState);
         this._lobbyReadyBtn.textContent = this._lobbyReadyState ? '✅ Listo' : '¡Listo!';
         if (this.onOnlineUpdateProfile) this.onOnlineUpdateProfile({ ready: this._lobbyReadyState });
@@ -1049,7 +1208,12 @@ export class HUD {
     for (const card of this._cardEls) {
       card.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.selectedPlayerElement = card.dataset.elementCard;
+        const elemId = card.dataset.elementCard;
+        if (card.classList.contains('locked')) {
+          this.openGachaModal();
+          return;
+        }
+        this.selectedPlayerElement = elemId;
         for (const c of this._cardEls) {
           c.classList.toggle('selected', c.dataset.elementCard === this.selectedPlayerElement);
         }
@@ -1250,6 +1414,8 @@ export class HUD {
     }
 
     this._updateStep2Summary();
+    this._syncStep2ElementCards();
+    this._syncEconomyUI();
   }
 
   _updateStep2Summary() {
@@ -1286,7 +1452,9 @@ export class HUD {
     if (this._rivalRowEl) this._rivalRowEl.classList.toggle('hidden', this.selectedFormat !== 'dojo');
     if (this._menuStep === 2) {
       this._updateStep2Summary();
+      this._syncStep2ElementCards();
     }
+    this._syncEconomyUI();
   }
 
   setOnlineMode(active) {
@@ -1327,7 +1495,8 @@ export class HUD {
             </div>`);
           continue;
         }
-        const cfg = getElementConfig(p.element || 'earth');
+        const isRoulette = p.element === 'classic_roulette';
+        const cfg = isRoulette ? { color: '#facc15', icon: '🎲', name: 'Ruleta Clásica' } : getElementConfig(p.element || 'earth');
         const isMe = p.id === localId;
         slotsHtml.push(`
           <div class="lobby-player-row ${p.ready ? 'ready' : ''}" data-lobby-player-id="${p.id}">
@@ -1400,31 +1569,280 @@ export class HUD {
   }
 
   _triggerStartFromSelector() {
-    const playerElement = this.selectedPlayerElement || 'earth';
+    if (this._rouletteSpinning) return;
     const format = this.selectedFormat || 'ffa';
-    let rivalElement = format === 'dojo' ? this.selectedRivalChoice : 'random';
-    if (!rivalElement || rivalElement === 'random') {
-      rivalElement = ELEMENT_KEYS[Math.floor(Math.random() * ELEMENT_KEYS.length)];
+    const rawElement = this.selectedPlayerElement || (format === 'dojo' ? 'earth' : 'classic_roulette');
+    const launch = (resolvedElement) => {
+      let rivalElement = format === 'dojo' ? this.selectedRivalChoice : 'random';
+      if (!rivalElement || rivalElement === 'random') {
+        rivalElement = ELEMENT_KEYS[Math.floor(Math.random() * ELEMENT_KEYS.length)];
+      }
+      const botCount =
+        format === 'teams'
+          ? 3
+          : format === 'dojo'
+            ? 1
+            : format === 'survival'
+              ? (this.selectedSurvivalCompanion === 'ally' ? 1 : 0)
+              : this.selectedBotCount || 1;
+      if (this.onStartDuel) {
+        this.onStartDuel({
+          playerElement: resolvedElement,
+          rivalElement,
+          mode: this.selectedMode || 'classic',
+          format,
+          difficulty: this.selectedDifficulty || 'master',
+          survivalCompanion: this.selectedSurvivalCompanion || 'solo',
+          botCount,
+        });
+      }
+    };
+
+    if (format !== 'dojo' && (rawElement === 'classic_roulette' || !this.economy.isUnlocked(rawElement))) {
+      this._spinClassicRoulette((resolved) => launch(resolved));
+      return;
     }
-    const botCount =
-      format === 'teams'
-        ? 3
-        : format === 'dojo'
-          ? 1
-          : format === 'survival'
-            ? (this.selectedSurvivalCompanion === 'ally' ? 1 : 0)
-            : this.selectedBotCount || 1;
-    if (this.onStartDuel) {
-      this.onStartDuel({
-        playerElement,
-        rivalElement,
-        mode: this.selectedMode || 'classic',
-        format,
-        difficulty: this.selectedDifficulty || 'master',
-        survivalCompanion: this.selectedSurvivalCompanion || 'solo',
-        botCount,
+    launch(rawElement);
+  }
+
+  /** Conecta SoundManager para efectos de ruleta y monedas */
+  setSoundManager(sound) {
+    this._sound = sound;
+    if (this.economy && !this._econUnsub) {
+      this._econUnsub = this.economy.onChange(() => {
+        this._syncEconomyUI();
+        this._syncStep2ElementCards();
       });
+      this._syncEconomyUI();
+      this._syncStep2ElementCards();
     }
+  }
+
+  /** Aviso flotante limpio al cobrar oro en oleadas de Supervivencia */
+  showGoldToast(amount, label = 'Oleada completada') {
+    if (!this.goldToastLayer || !amount) return;
+    const toast = el('div', 'gold-toast');
+    toast.innerHTML = `<span class="gt-amount">+${amount} 🪙</span><span class="gt-label">${label}</span>`;
+    this.goldToastLayer.appendChild(toast);
+    setTimeout(() => {
+      toast.classList.add('fade-out');
+      setTimeout(() => toast.remove(), 350);
+    }, 2400);
+  }
+
+  /** Sincroniza contadores de oro, botón de Ruleta Legendaria y botones del Lobby */
+  _syncEconomyUI() {
+    const gold = this.economy.getGold();
+    const nextCost = this.economy.getNextLegendaryCost();
+    if (this._goldAmountEl) this._goldAmountEl.textContent = String(gold);
+    if (this._gachaGoldAmountEl) this._gachaGoldAmountEl.textContent = String(gold);
+    if (this._gachaBtnCostEl) {
+      this._gachaBtnCostEl.textContent = nextCost !== null ? `${nextCost} 🪙` : 'COMPLETO';
+    }
+    if (this._openGachaBtn) {
+      this._openGachaBtn.classList.toggle('can-afford', nextCost !== null && gold >= nextCost);
+      this._openGachaBtn.classList.toggle('is-complete', nextCost === null);
+    }
+
+    if (this._gachaSlotEls) {
+      for (const slot of this._gachaSlotEls) {
+        const key = slot.dataset.gachaSlot;
+        const unlocked = this.economy.isUnlocked(key);
+        slot.classList.toggle('unlocked', unlocked);
+        slot.classList.toggle('locked', !unlocked);
+        const stateEl = slot.querySelector('[data-gacha-slot-state]');
+        if (stateEl) stateEl.textContent = unlocked ? '✅ Desbloqueado' : '🔒 Bloqueado';
+      }
+    }
+
+    if (this._gachaSpinBtn) {
+      if (nextCost === null) {
+        this._gachaSpinBtn.textContent = '¡TODOS DESBLOQUEADOS!';
+        this._gachaSpinBtn.disabled = true;
+      } else {
+        this._gachaSpinBtn.textContent = `GIRAR RULETA (${nextCost} 🪙)`;
+        this._gachaSpinBtn.disabled = this._rouletteSpinning || gold < nextCost;
+      }
+    }
+
+    if (this._lobbyElemBtns) {
+      if (this._lobbyElement !== 'classic_roulette' && !this.economy.isUnlocked(this._lobbyElement)) {
+        this._lobbyElement = 'classic_roulette';
+      }
+      for (const eb of this._lobbyElemBtns) {
+        const elemId = eb.dataset.lobbyElement;
+        const unlocked = elemId === 'classic_roulette' || this.economy.isUnlocked(elemId);
+        eb.classList.toggle('locked', !unlocked);
+        eb.classList.toggle('active', elemId === this._lobbyElement);
+        const cfg = elemId === 'classic_roulette' ? null : ELEMENTS[elemId];
+        if (cfg) {
+          eb.textContent = unlocked ? `${cfg.icon} ${cfg.name}` : `🔒 ${cfg.name}`;
+        }
+      }
+    }
+  }
+
+  /** Muestra los 9 elementos en Dojo o Ruleta Clásica + Legendarios en los demás formatos */
+  _syncStep2ElementCards() {
+    if (!this._cardEls) return;
+    const isDojo = this.selectedFormat === 'dojo';
+
+    if (isDojo) {
+      if (this.selectedPlayerElement === 'classic_roulette' || !ELEMENT_KEYS.includes(this.selectedPlayerElement)) {
+        this.selectedPlayerElement = 'earth';
+      }
+    } else if (
+      this.selectedPlayerElement !== 'classic_roulette' &&
+      !(this.economy.isLegendary(this.selectedPlayerElement) && this.economy.isUnlocked(this.selectedPlayerElement))
+    ) {
+      this.selectedPlayerElement = 'classic_roulette';
+    }
+
+    for (const card of this._cardEls) {
+      const id = card.dataset.elementCard;
+      const lockBadge = card.querySelector('[data-lock-badge]');
+      if (isDojo) {
+        const show = id !== 'classic_roulette';
+        card.classList.toggle('hidden', !show);
+        card.classList.remove('locked');
+        if (lockBadge) lockBadge.classList.add('hidden');
+      } else if (id === 'classic_roulette') {
+        card.classList.remove('hidden', 'locked');
+      } else if (this.economy.isClassic(id)) {
+        card.classList.add('hidden');
+        card.classList.remove('locked');
+      } else {
+        const unlocked = this.economy.isUnlocked(id);
+        card.classList.remove('hidden');
+        card.classList.toggle('locked', !unlocked);
+        if (lockBadge) lockBadge.classList.toggle('hidden', unlocked);
+      }
+      card.classList.toggle('selected', id === this.selectedPlayerElement);
+    }
+  }
+
+  openGachaModal() {
+    if (!this._gachaModalEl || this._rouletteSpinning) return;
+    this._lastGachaUnlocked = null;
+    if (this._gachaResultEl) this._gachaResultEl.classList.add('hidden');
+    if (this._gachaEquipBtn) this._gachaEquipBtn.classList.add('hidden');
+    for (const s of this._gachaSlotEls) s.classList.remove('spinning', 'won');
+    this._syncEconomyUI();
+    this._gachaModalEl.classList.remove('hidden');
+  }
+
+  closeGachaModal() {
+    if (!this._gachaModalEl || this._rouletteSpinning) return;
+    this._gachaModalEl.classList.add('hidden');
+  }
+
+  _spinGachaRoulette() {
+    if (this._rouletteSpinning || !this.economy.canRollLegendary()) return;
+    const lockedBefore = this.economy.getLockedLegendaries();
+    const res = this.economy.rollLegendaryGacha();
+    if (!res) return;
+
+    this._rouletteSpinning = true;
+    this._lastGachaUnlocked = res.unlockedElement;
+    if (this._gachaSpinBtn) this._gachaSpinBtn.disabled = true;
+    if (this._gachaCloseBtn) this._gachaCloseBtn.disabled = true;
+    if (this._gachaEquipBtn) this._gachaEquipBtn.classList.add('hidden');
+    if (this._gachaResultEl) this._gachaResultEl.classList.add('hidden');
+
+    const candidateEls = this._gachaSlotEls.filter((elSlot) =>
+      lockedBefore.includes(elSlot.dataset.gachaSlot)
+    );
+    const totalSteps = Math.max(12, candidateEls.length * 4 + 3);
+    const winnerIdx = Math.max(0, candidateEls.findIndex((elSlot) => elSlot.dataset.gachaSlot === res.unlockedElement));
+    let step = 0;
+    const totalDuration = 2200;
+    const startTime = performance.now();
+
+    const advance = () => {
+      for (const s of this._gachaSlotEls) s.classList.remove('spinning', 'won');
+      const isFinal = step >= totalSteps;
+      const activeSlot = isFinal
+        ? candidateEls[winnerIdx]
+        : candidateEls[(winnerIdx + step) % candidateEls.length];
+      if (activeSlot) activeSlot.classList.add(isFinal ? 'won' : 'spinning');
+
+      if (isFinal) {
+        if (this._sound && this._sound.playRouletteWin) this._sound.playRouletteWin(true);
+        this._rouletteSpinning = false;
+        if (this._gachaCloseBtn) this._gachaCloseBtn.disabled = false;
+        this._syncEconomyUI();
+        this._syncStep2ElementCards();
+        const cfg = ELEMENTS[res.unlockedElement];
+        if (this._gachaResultEl && cfg) {
+          this._gachaResultEl.innerHTML = `✨ ¡Desbloqueaste a <strong>${cfg.icon} ${cfg.name}</strong>!`;
+          this._gachaResultEl.classList.remove('hidden');
+        }
+        if (this._gachaEquipBtn) this._gachaEquipBtn.classList.remove('hidden');
+        return;
+      }
+
+      if (this._sound && this._sound.playRouletteTick) {
+        this._sound.playRouletteTick(step / totalSteps);
+      }
+      step += 1;
+      const progress = step / totalSteps;
+      const delay = 55 + Math.pow(progress, 2.2) * 195;
+      const elapsed = performance.now() - startTime;
+      const clampedDelay = step === totalSteps ? Math.max(120, totalDuration - elapsed) : delay;
+      setTimeout(advance, Math.max(40, clampedDelay));
+    };
+
+    advance();
+  }
+
+  _spinClassicRoulette(onComplete) {
+    if (!this._classicRouletteModalEl || this._classicSlotEls.length === 0) {
+      if (onComplete) onComplete(this.economy.rollClassicElement());
+      return;
+    }
+    this._rouletteSpinning = true;
+    const winner = this.economy.rollClassicElement();
+    const winnerIdx = Math.max(0, CLASSIC_ELEMENTS.indexOf(winner));
+    for (const s of this._classicSlotEls) s.classList.remove('spinning', 'won');
+    if (this._classicRouletteStatusEl) {
+      this._classicRouletteStatusEl.textContent = 'Sorteando elemento clásico...';
+    }
+    this._classicRouletteModalEl.classList.remove('hidden');
+
+    const totalSteps = 16;
+    let step = 0;
+
+    const advance = () => {
+      for (const s of this._classicSlotEls) s.classList.remove('spinning', 'won');
+      const isFinal = step >= totalSteps;
+      const idx = isFinal ? winnerIdx : (winnerIdx + step) % this._classicSlotEls.length;
+      const slot = this._classicSlotEls[idx];
+      if (slot) slot.classList.add(isFinal ? 'won' : 'spinning');
+
+      if (isFinal) {
+        if (this._sound && this._sound.playRouletteWin) this._sound.playRouletteWin(false);
+        const cfg = ELEMENTS[winner];
+        if (this._classicRouletteStatusEl && cfg) {
+          this._classicRouletteStatusEl.textContent = `¡Elemento asignado: ${cfg.icon} ${cfg.name}!`;
+        }
+        setTimeout(() => {
+          this._classicRouletteModalEl.classList.add('hidden');
+          this._rouletteSpinning = false;
+          if (onComplete) onComplete(winner);
+        }, 500);
+        return;
+      }
+
+      if (this._sound && this._sound.playRouletteTick) {
+        this._sound.playRouletteTick(step / totalSteps);
+      }
+      step += 1;
+      const progress = step / totalSteps;
+      const delay = 55 + Math.pow(progress, 2.0) * 145;
+      setTimeout(advance, delay);
+    };
+
+    advance();
   }
 
   /** Conecta TouchControls con InputManager */
@@ -2297,11 +2715,20 @@ export class HUD {
   }
 
   /** Muestra la pantalla de fin de etapa / partida */
-  showGameOver({ victory, title, subtitle, mode = 'defeat', isOnline = false, isHost = false }) {
+  showGameOver({ victory, title, subtitle, mode = 'defeat', isOnline = false, isHost = false, goldReward = 0, totalGold = null }) {
     this._isGameOver = true;
     this.hideUpgradeModal();
     this._goTitle.textContent = title;
     this._goSubtitle.textContent = subtitle || '';
+    if (this._goGoldBadge) {
+      if (goldReward > 0) {
+        const balance = totalGold ?? this.economy.getGold();
+        this._goGoldBadge.innerHTML = `<span class="go-gold-earned">+${goldReward} 🪙</span><span class="go-gold-total">Saldo: ${balance} 🪙</span>`;
+        this._goGoldBadge.classList.remove('hidden');
+      } else {
+        this._goGoldBadge.classList.add('hidden');
+      }
+    }
     this.gameOverOverlay.classList.toggle('victory', !!victory);
     this.gameOverOverlay.classList.toggle('defeat', !victory);
 

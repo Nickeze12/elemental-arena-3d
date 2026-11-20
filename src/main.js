@@ -102,6 +102,7 @@ player.onDamaged = handleDamaged;
 enemy.onDamaged = handleDamaged;
 
 // Control de silencio (botón en HUD y tecla M)
+hud.setSoundManager(sound);
 hud.onToggleMute = () => sound.toggleMute();
 sound.onMuteChange = (muted) => hud.setMuted(muted);
 

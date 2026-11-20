@@ -1378,6 +1378,47 @@ export class SoundManager {
     this._playFmSweep(196, 68, 0.48, 0.12, t0, 11, 28);
   }
 
+  // ============================================================
+  //  Economía y Ruletas (monedas, ticks y fanfarrias)
+  // ============================================================
+
+  /** Tintineo metálico doble agudo al recibir oro */
+  playCoinReward() {
+    const t0 = this._ready();
+    if (t0 === null) return;
+    this._playNote(1318.5, t0, 0.11, 0.16, 'sine');
+    this._playNote(2637.0, t0, 0.1, 0.06, 'triangle');
+    this._playNote(1760.0, t0 + 0.075, 0.22, 0.18, 'sine');
+    this._playNote(3520.0, t0 + 0.075, 0.16, 0.05, 'triangle');
+  }
+
+  /** Clic breve de ruleta cuya altura sube progresivamente con pitchFactor [0..1] */
+  playRouletteTick(pitchFactor = 0) {
+    const t0 = this._ready();
+    if (t0 === null) return;
+    const p = Math.max(0, Math.min(1, Number(pitchFactor) || 0));
+    const freq = 520 + p * 420;
+    this._playNote(freq, t0, 0.04, 0.11, 'triangle', 2600);
+  }
+
+  /** Acorde brillante al frenar ruleta clásica o fanfarria cristalina legendaria */
+  playRouletteWin(isLegendary = false) {
+    const t0 = this._ready();
+    if (t0 === null) return;
+    if (isLegendary) {
+      const notes = [587.33, 739.99, 880.0, 1174.66, 1479.98];
+      notes.forEach((f, i) => {
+        this._playNote(f, t0 + i * 0.075, 0.45, 0.17, 'triangle');
+        this._playNote(f * 2, t0 + i * 0.075, 0.32, 0.06, 'sine');
+      });
+    } else {
+      const chord = [523.25, 659.25, 783.99, 1046.5];
+      chord.forEach((f, i) => {
+        this._playNote(f, t0 + i * 0.055, 0.34, 0.16, 'triangle');
+      });
+    }
+  }
+
   _playFmSweep(freqStart, freqEnd, duration, volume = 0.16, startTime = this.ctx.currentTime, modFreq = 24, modDepth = 40) {
     const carrier = this.ctx.createOscillator();
     const mod = this.ctx.createOscillator();

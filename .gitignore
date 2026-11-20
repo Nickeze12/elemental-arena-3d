@@ -6,3 +6,5 @@ dist/
 *.log
 *.png
 verify_*.mjs
+
+.vercel

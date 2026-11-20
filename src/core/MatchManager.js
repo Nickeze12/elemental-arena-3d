@@ -7,6 +7,7 @@ import { MonsterEntity } from '../entities/MonsterEntity.js';
 import { EnemyAI } from '../ai/EnemyAI.js';
 import { WaveManager } from './WaveManager.js';
 import { NetworkManager } from '../network/NetworkManager.js';
+import { economyManager } from './EconomyManager.js';
 
 /**
  * MatchManager
@@ -238,6 +239,9 @@ export class MatchManager {
     this._pendingAbyssFall = false;
     this._guestAuraState = null;
     this._onlineRoster = [];
+    this.economy = economyManager;
+    this._matchGoldAwarded = false;
+    this._survivalRunGold = 0;
 
     this.hud.onOnlineStartMatch = () => {
       this.startOnlineHostMatch();
@@ -493,7 +497,16 @@ export class MatchManager {
           // Ignora
         }
       }
-      this.hud.showUpgradeModal(this._coopWaveChoices, msg.wave || 1);
+      const clearedWave = msg.wave || 1;
+      const isBossWave = clearedWave % 3 === 0;
+      const waveGold = isBossWave ? 40 : 30;
+      this.economy.addGold(waveGold);
+      this._survivalRunGold += waveGold;
+      if (this.sound && this.sound.playCoinReward) this.sound.playCoinReward();
+      if (this.hud && this.hud.showGoldToast) {
+        this.hud.showGoldToast(waveGold, isBossWave ? 'Coloso derrotado' : 'Oleada completada');
+      }
+      this.hud.showUpgradeModal(this._coopWaveChoices, clearedWave);
     };
 
     this.network.onUpgradeSelected = (msg) => {
@@ -551,6 +564,7 @@ export class MatchManager {
           // Ignora
         }
       }
+      const goldReward = this._awardMatchEndGold(didWin, msg.mode || 'online_end');
       this.hud.showGameOver({
         victory: didWin,
         title: msg.title || 'FIN DE LA PARTIDA',
@@ -558,6 +572,8 @@ export class MatchManager {
         mode: msg.mode || 'online_end',
         isOnline: true,
         isHost: false,
+        goldReward,
+        totalGold: this.economy.getGold(),
       });
     };
 
@@ -1136,10 +1152,14 @@ export class MatchManager {
           : format === 'survival'
             ? 'team_blue'
             : p.id;
+      const resolvedElement =
+        p.element && p.element !== 'classic_roulette'
+          ? p.element
+          : this.economy.rollClassicElement();
       return {
         id: p.id,
         name: p.name,
-        element: p.element || 'earth',
+        element: resolvedElement,
         team,
         pos: [Number(sp.x.toFixed(2)), Number(sp.y.toFixed(2)), Number(sp.z.toFixed(2))],
         yaw: Number(yaw.toFixed(4)),
@@ -1183,6 +1203,8 @@ export class MatchManager {
 
   /** Configura escena, Player local y RemoteFighters sincronizados para Host y Guests */
   _startOnlineMatch({ settings = {}, spawns = [], bots = [] }) {
+    this._matchGoldAwarded = false;
+    this._survivalRunGold = 0;
     this.mode = settings.mode || 'classic';
     this.format = settings.format || 'ffa';
     const isSanctuary = this.mode === 'sanctuary' && this.sanctuaryMap;
@@ -1537,10 +1559,16 @@ export class MatchManager {
 
   /** Inicia combate tras elegir elemento, escenario, formato, dificultad y cantidad de bots */
   startMatchWithElements(playerElement = 'earth', enemyElement = 'earth') {
-    this.playerElement = playerElement;
+    this._matchGoldAwarded = false;
+    this._survivalRunGold = 0;
+    const resolvedPlayerElem =
+      playerElement === 'classic_roulette'
+        ? this.economy.rollClassicElement()
+        : playerElement;
+    this.playerElement = resolvedPlayerElem;
     this.enemyElement = enemyElement;
     this.player.team = this.format === 'teams' ? 'team_blue' : 'player';
-    this.combat.setFighterElement(this.player, playerElement);
+    this.combat.setFighterElement(this.player, resolvedPlayerElem);
 
     if (this.format === 'survival') {
       this.hud.showElementSelector(false);
@@ -2160,7 +2188,8 @@ export class MatchManager {
 
     if (waveCleared) {
       if (this.isOnline && this.network.role === 'host') {
-        this.waveManager.rewardWaveClear(null);
+        const waveReward = this.waveManager.rewardWaveClear(null);
+        this._notifyWaveGold(waveReward);
         for (const rf of this._remoteFighters.values()) {
           if (rf && rf.isAlive) {
             rf.hp = Math.min(rf.maxHp, rf.hp + 25);
@@ -2196,7 +2225,8 @@ export class MatchManager {
       }
 
       const allyFighter = this.survivalCompanion === 'ally' ? this._bot1.fighter : null;
-      this.waveManager.rewardWaveClear(allyFighter);
+      const waveReward = this.waveManager.rewardWaveClear(allyFighter);
+      this._notifyWaveGold(waveReward);
       this.hud.updateSurvivalStats(this.waveManager.wave, 0, this.waveManager.score);
       this.hud.updateMultiHealthBars(this.player.hp, this.player.maxHp, this.enemies, false, 0);
 
@@ -2710,6 +2740,30 @@ export class MatchManager {
     this._finishMatch('player', reason, mode, 1);
   }
 
+  _notifyWaveGold(waveReward) {
+    if (!waveReward || !waveReward.goldReward) return;
+    this._survivalRunGold += waveReward.goldReward;
+    if (this.sound && this.sound.playCoinReward) this.sound.playCoinReward();
+    if (this.hud && this.hud.showGoldToast) {
+      this.hud.showGoldToast(
+        waveReward.goldReward,
+        waveReward.isBossWave ? 'Coloso derrotado' : 'Oleada completada'
+      );
+    }
+  }
+
+  _awardMatchEndGold(didWin, mode = '') {
+    if (this._matchGoldAwarded) return 0;
+    this._matchGoldAwarded = true;
+    if (this.format === 'dojo' || this.format === 'survival' || mode === 'survival_end') {
+      return 0;
+    }
+    const reward = didWin ? 50 : 10;
+    this.economy.addGold(reward);
+    if (this.sound && this.sound.playCoinReward) this.sound.playCoinReward();
+    return reward;
+  }
+
   _finishMatch(winner, reason, mode, placement = 1) {
     this.state = 'GAME_OVER';
     this.reason = reason;
@@ -2770,6 +2824,7 @@ export class MatchManager {
       subtitle = '¡BATALLA CAMPAL COMPLETADA! Venciste a ambos maestros elementales';
     }
 
+    const goldReward = this._awardMatchEndGold(winner === 'player', mode);
     this.hud.showGameOver({
       victory: winner === 'player',
       title,
@@ -2777,6 +2832,8 @@ export class MatchManager {
       mode,
       isOnline: this.isOnline,
       isHost: this.isOnline && this.network && this.network.role === 'host',
+      goldReward,
+      totalGold: this.economy.getGold(),
     });
   }
 

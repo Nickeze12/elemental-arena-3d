@@ -4,6 +4,7 @@ import { FIGHTER_CONFIG } from '../entities/BaseFighter.js';
 import { MonsterEntity } from '../entities/MonsterEntity.js';
 import { createEnergyVFXMaterial } from '../utils/ToonMaterial.js';
 import { createWindRibbonTube } from '../utils/AirGeometry.js';
+import { economyManager } from './EconomyManager.js';
 
 const STORAGE_KEY = 'elemental_arena_survival_best';
 const MAX_CONCURRENT_MONSTERS = 6;
@@ -624,7 +625,7 @@ export class WaveManager {
     return { waveCleared, pointsEarned };
   }
 
-  /** Cura +25 HP a jugador y aliado al limpiar oleada y suma bonus */
+  /** Cura +25 HP a jugador y aliado al limpiar oleada, suma bonus y otorga oro */
   rewardWaveClear(allyFighter = null) {
     this.score += this.wave * 100;
     if (this.player && this.player.isAlive) {
@@ -638,6 +639,10 @@ export class WaveManager {
     if (this.sound && this.sound.playWaveClear) {
       this.sound.playWaveClear();
     }
+    const isBossWave = this.wave % 3 === 0;
+    const goldReward = isBossWave ? 40 : 30;
+    economyManager.addGold(goldReward);
+    return { wave: this.wave, isBossWave, goldReward };
   }
 
   /**

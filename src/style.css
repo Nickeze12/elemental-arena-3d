@@ -3266,3 +3266,340 @@ body.touch-mode .dojo-close-btn {
   text-align: center;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
 }
+
+/* ==========================================================
+   Economía, Oro y Ruletas (Clásica y Legendaria)
+   ========================================================== */
+.gold-balance-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.14);
+  border: 1px solid rgba(250, 204, 21, 0.45);
+  color: #fde68a;
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.legendary-gacha-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.88), rgba(88, 28, 135, 0.85));
+  color: #fef3c7;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+}
+.legendary-gacha-btn:hover {
+  transform: translateY(-1px);
+  border-color: #facc15;
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.32);
+}
+.legendary-gacha-btn.can-afford {
+  border-color: #facc15;
+  box-shadow: 0 0 12px rgba(250, 204, 21, 0.38);
+}
+.legendary-gacha-btn.is-complete {
+  background: rgba(22, 101, 52, 0.75);
+  border-color: rgba(74, 222, 128, 0.55);
+}
+.gacha-cost-tag {
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fde047;
+  font-size: 0.74rem;
+}
+
+.element-card.classic-roulette-card {
+  background: linear-gradient(160deg, rgba(45, 34, 18, 0.92), rgba(22, 18, 14, 0.95));
+  border-color: rgba(250, 204, 21, 0.42);
+}
+.roulette-mini-icons {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  font-size: 1.25rem;
+  margin: 8px 0 4px;
+}
+.roulette-odds-tag {
+  text-align: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #fde68a;
+  opacity: 0.9;
+}
+
+.element-card.locked {
+  opacity: 0.62;
+  filter: grayscale(0.55);
+  border-style: dashed;
+}
+.element-card.locked:hover {
+  opacity: 0.85;
+}
+.card-lock-badge {
+  margin-top: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.78);
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  color: #fde68a;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.lobby-elem-btn.locked {
+  opacity: 0.58;
+  border-style: dashed;
+  color: #cbd5e1;
+}
+.lobby-elem-btn.lobby-elem-classic {
+  border-color: rgba(250, 204, 21, 0.5);
+  color: #fef08a;
+}
+
+/* Modales de Ruleta */
+.roulette-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(8, 10, 16, 0.82);
+  backdrop-filter: blur(6px);
+}
+.roulette-modal-overlay.hidden {
+  display: none;
+}
+.roulette-modal-card {
+  width: min(94vw, 680px);
+  padding: 20px 22px;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(28, 24, 34, 0.97), rgba(16, 14, 22, 0.98));
+  border: 1.5px solid rgba(250, 204, 21, 0.45);
+  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.68);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.roulette-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.roulette-modal-header h3 {
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  color: #fde68a;
+}
+.roulette-modal-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.roulette-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  font-weight: 800;
+  cursor: pointer;
+}
+.roulette-close-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.gacha-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+.gacha-slot-card,
+.classic-slot-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1.5px solid rgba(255, 255, 255, 0.14);
+  text-align: center;
+  transition: transform 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+}
+.gacha-slot-card.unlocked {
+  border-color: color-mix(in srgb, var(--el-color) 65%, transparent);
+  background: color-mix(in srgb, var(--el-color) 14%, rgba(20, 20, 28, 0.9));
+}
+.gacha-slot-card.locked {
+  opacity: 0.72;
+}
+.gacha-slot-card.spinning,
+.classic-slot-card.spinning {
+  opacity: 1;
+  transform: scale(1.06);
+  border-color: #facc15;
+  background: rgba(250, 204, 21, 0.2);
+  box-shadow: 0 0 18px rgba(250, 204, 21, 0.45);
+}
+.gacha-slot-card.won,
+.classic-slot-card.won {
+  opacity: 1;
+  transform: scale(1.09);
+  border-color: #fde047;
+  background: rgba(250, 204, 21, 0.28);
+  box-shadow: 0 0 26px rgba(250, 204, 21, 0.72);
+}
+.gacha-slot-icon,
+.classic-slot-icon {
+  font-size: 1.7rem;
+}
+.gacha-slot-name,
+.classic-slot-name {
+  font-size: 0.82rem;
+  color: #f8fafc;
+}
+.gacha-slot-state {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+.gacha-result-banner {
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: rgba(250, 204, 21, 0.16);
+  border: 1px solid rgba(250, 204, 21, 0.55);
+  color: #fef08a;
+  text-align: center;
+  font-size: 0.95rem;
+}
+.roulette-modal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.gacha-spin-btn:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.classic-roulette-modal {
+  width: min(92vw, 520px);
+  text-align: center;
+}
+.classic-roulette-title {
+  font-size: 1.15rem;
+  color: #fde68a;
+  letter-spacing: 0.06em;
+}
+.classic-slots-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.classic-roulette-status {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #fef3c7;
+}
+
+/* Distintivo de oro en Game Over y Toast flotante en Supervivencia */
+.gameover-gold-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 6px auto 4px;
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.16);
+  border: 1px solid rgba(250, 204, 21, 0.5);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+.go-gold-earned {
+  color: #fde047;
+}
+.go-gold-total {
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.gold-toast-layer {
+  position: fixed;
+  top: 76px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+.gold-toast {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 15px;
+  border-radius: 999px;
+  background: rgba(22, 18, 12, 0.88);
+  border: 1.5px solid rgba(250, 204, 21, 0.65);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  font-size: 0.88rem;
+  font-weight: 800;
+  animation: goldToastPop 0.25s ease-out;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.gold-toast.fade-out {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+.gt-amount {
+  color: #fde047;
+}
+.gt-label {
+  color: #f8fafc;
+  font-weight: 700;
+}
+@keyframes goldToastPop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (max-width: 680px) {
+  .gacha-slots-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .classic-slots-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
